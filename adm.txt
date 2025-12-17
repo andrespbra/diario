@@ -1,13 +1,12 @@
 -- SCRIPT PARA CRIAR USUÁRIO ADMIN (Supabase)
 -- Execute este script no SQL Editor do Supabase para criar o usuário 'admin'
+-- Senha definida: 123456
+-- Email virtual: admin@sys.local (O sistema converte o login 'admin' para este email automaticamente)
 
--- Garante que a extensão de criptografia esteja ativa
+-- 1. Garante que a extensão de criptografia esteja ativa
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- 1. Insere o usuário na tabela de autenticação (auth.users)
--- Senha padrão: admin123
--- Usuário: admin (será tratado como admin@helpdesk.com)
-
+-- 2. Insere o usuário na tabela de autenticação (auth.users)
 WITH new_user AS (
   INSERT INTO auth.users (
     instance_id,
@@ -30,11 +29,11 @@ WITH new_user AS (
     gen_random_uuid(),
     'authenticated',
     'authenticated',
-    'admin@helpdesk.com',
-    crypt('admin123', gen_salt('bf')),
+    'admin@sys.local', -- IMPORTANTE: Domínio virtual usado pelo DataManager
+    crypt('123456', gen_salt('bf')), -- Senha criptografada
     now(),
     '{"provider":"email","providers":["email"]}',
-    '{"name": "Administrador", "nivel": "Admin"}',
+    '{"name": "Administrador", "nivel": "Admin", "mustChangePassword": false}',
     now(),
     now(),
     '',
@@ -44,7 +43,7 @@ WITH new_user AS (
   )
   RETURNING id
 )
--- 2. Insere a identidade (Necessário para login)
+-- 3. Insere a identidade (Necessário para login funcionar corretamente)
 INSERT INTO auth.identities (
   id,
   user_id,
@@ -58,13 +57,14 @@ INSERT INTO auth.identities (
 SELECT
   gen_random_uuid(),
   id,
-  format('{"sub":"%s","email":"admin@helpdesk.com"}', id)::jsonb,
+  format('{"sub":"%s","email":"admin@sys.local"}', id)::jsonb,
   'email',
-  id::text, -- CORREÇÃO: provider_id é obrigatório (geralmente é o UUID do usuário para email)
+  id::text,
   now(),
   now(),
   now()
 FROM new_user;
 
 -- NOTA: O perfil na tabela 'public.user_profiles' será criado automaticamente 
--- pelo Trigger definido no arquivo sql.txt
+-- pelo Trigger definido no arquivo sql.txt. Se o trigger falhar, o usuário será criado sem perfil,
+-- mas o DataManager tem um fallback para isso.
