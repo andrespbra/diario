@@ -42,6 +42,8 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin }) => {
        // Catch "Failed to fetch" specifically to show a nicer message
        if (err.message === 'Failed to fetch') {
            setError('Erro de conexão. Verifique se o Supabase está ativo ou use o Modo Demo se disponível.');
+       } else if (err.message === 'Email not confirmed') {
+           setError('Email não confirmado. Peça ao Admin para desativar "Confirm Email" no painel do Supabase (Auth > Providers > Email).');
        } else {
            setError(err.message === 'Invalid login credentials' 
             ? 'Usuário ou senha incorretos.' 
@@ -70,9 +72,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin }) => {
              </div>
 
              {error && (
-                <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 flex items-center gap-2 text-red-200 text-sm">
-                    <AlertCircle className="w-4 h-4 shrink-0" />
-                    <span>{error}</span>
+                <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 flex items-start gap-2 text-red-200 text-sm">
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span className="leading-snug">{error}</span>
                 </div>
              )}
              

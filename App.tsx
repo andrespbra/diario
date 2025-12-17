@@ -321,8 +321,6 @@ const App: React.FC = () => {
 
       try {
           // 1. Tentar criar o usuário no Auth
-          // Se "Enable Email Confirmations" estiver ligado no Supabase, isso envia o email.
-          // Se estiver desligado, o usuário é confirmado automaticamente.
           const { data, error } = await tempClient.auth.signUp({
               email: email,
               password: password,
@@ -348,10 +346,10 @@ const App: React.FC = () => {
           }
 
           // 2. Auth criado com sucesso 
-          // (data.user existe mesmo se pendente de confirmação. Ignoramos data.session null)
           if (data.user) {
+              // Create/Update profile regardless of session state
               const { error: profileError } = await supabase.from('user_profiles').upsert({
-                  id: data.user.id, // ID retornado pelo signUp
+                  id: data.user.id,
                   name: newUserProfile.name,
                   username: usernameClean,
                   nivel: newUserProfile.nivel
@@ -361,7 +359,13 @@ const App: React.FC = () => {
                   console.error("Profile creation error:", profileError);
                   showNotification("Usuário criado no Auth, mas falha ao salvar perfil.");
               } else {
-                  showNotification("Usuário cadastrado com sucesso!");
+                  // Check if email confirmation is required/pending
+                  if (!data.session) {
+                      showNotification("Usuário criado! (Atenção: Supabase está exigindo confirmação de email).");
+                      console.warn("User created but no session returned. Please disable 'Confirm Email' in Supabase Dashboard > Authentication > Providers > Email if you are using fake emails.");
+                  } else {
+                      showNotification("Usuário cadastrado e ativo!");
+                  }
                   setTimeout(fetchAllUsers, 500);
               }
           }
@@ -393,7 +397,7 @@ const App: React.FC = () => {
 
   const showNotification = (msg: string) => {
       setNotification(msg);
-      setTimeout(() => setNotification(null), 3000);
+      setTimeout(() => setNotification(null), 5000); // Increased time for easier reading
   };
 
   if (sessionLoading) {
