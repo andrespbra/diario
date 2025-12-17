@@ -5,9 +5,10 @@ import { Search, MapPin, Clock, AlertTriangle, AlertOctagon, Wrench, CheckCircle
 interface HistoryListProps {
   tickets: Ticket[];
   onDelete: (ticketId: string) => void;
+  onUpdate: (ticket: Ticket) => void;
 }
 
-export const HistoryList: React.FC<HistoryListProps> = ({ tickets, onDelete }) => {
+export const HistoryList: React.FC<HistoryListProps> = ({ tickets, onDelete, onUpdate }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [copyFeedbackId, setCopyFeedbackId] = useState<string | null>(null);
@@ -72,6 +73,15 @@ ${ticket.analystAction}`;
     }
   };
 
+  const handleCloseTicket = (ticket: Ticket) => {
+    if (window.confirm(`Deseja encerrar o chamado ${ticket.taskId || 'selecionado'}?`)) {
+        onUpdate({
+            ...ticket,
+            status: TicketStatus.CLOSED
+        });
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 h-full flex flex-col">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -118,7 +128,7 @@ ${ticket.analystAction}`;
                          <th className="px-6 py-4">Cliente / Local</th>
                          <th className="px-6 py-4">Detalhes</th>
                          <th className="px-6 py-4 w-32">Data</th>
-                         <th className="px-6 py-4 w-24 text-right">Ações</th>
+                         <th className="px-6 py-4 w-32 text-right">Ações</th>
                      </tr>
                  </thead>
                  <tbody className="divide-y divide-gray-100">
@@ -189,6 +199,15 @@ ${ticket.analystAction}`;
                                  </td>
                                  <td className="px-6 py-4 align-top text-right">
                                      <div className="flex justify-end gap-2">
+                                         {ticket.status !== TicketStatus.CLOSED && (
+                                             <button
+                                                onClick={() => handleCloseTicket(ticket)}
+                                                className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                                                title="Encerrar chamado"
+                                             >
+                                                 <CheckCircle2 className="w-4 h-4" />
+                                             </button>
+                                         )}
                                          <button
                                             onClick={() => handleCopyTicketDetails(ticket)}
                                             className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"

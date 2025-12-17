@@ -260,7 +260,13 @@ const App: React.FC = () => {
             {currentView === 'dashboard' && <Dashboard tickets={tickets} />}
             {currentView === 'new-ticket' && <NewTicketForm onSubmit={handleCreateTicket} currentUser={currentUser} />}
             {currentView === 'escalations' && <EscalationList tickets={tickets} onResolve={handleResolveTicket} />}
-            {currentView === 'history' && <HistoryList tickets={tickets} onDelete={handleDeleteTicket} />}
+            {currentView === 'history' && (
+                <HistoryList 
+                    tickets={tickets} 
+                    onDelete={handleDeleteTicket} 
+                    onUpdate={handleResolveTicket} 
+                />
+            )}
             {currentView === 'settings' && currentUser.nivel === 'Admin' && (
                 <Settings users={users} onAddUser={handleAddUser} onDeleteUser={handleDeleteUser} />
             )}
