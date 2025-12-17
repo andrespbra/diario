@@ -4,7 +4,7 @@ import { UserPlus, Shield, User, Trash2, Save, Lock, Info } from 'lucide-react';
 
 interface SettingsProps {
   users: UserProfile[];
-  onAddUser: (user: UserProfile) => void;
+  onAddUser: (user: UserProfile, password?: string) => void;
   onDeleteUser: (userId: string) => void;
 }
 
@@ -12,7 +12,7 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
   const [newUser, setNewUser] = useState({
     name: '',
     username: '',
-    password: '', // Visual only for this demo
+    password: '', 
     nivel: 'Analista' as UserLevel
   });
 
@@ -26,16 +26,16 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newUser.name || !newUser.username) return;
+    if (!newUser.name || !newUser.username || !newUser.password) return;
 
     const userProfile: UserProfile = {
-      id: generateId(),
+      id: generateId(), // This ID is temporary, Supabase Auth generates the real one
       name: newUser.name,
       username: newUser.username,
       nivel: newUser.nivel
     };
 
-    onAddUser(userProfile);
+    onAddUser(userProfile, newUser.password);
     setNewUser({ name: '', username: '', password: '', nivel: 'Analista' });
   };
 

@@ -23,7 +23,7 @@ const key = getEnvVar('SUPABASE_ANON_KEY', 'VITE_SUPABASE_ANON_KEY');
 
 export const isSupabaseConfigured = !!url && url !== 'https://placeholder.supabase.co' && !url.includes('placeholder');
 
-const supabaseUrl = url || 'https://placeholder.supabase.co';
-const supabaseAnonKey = key || 'placeholder-key';
+export const supabaseUrl = url || 'https://placeholder.supabase.co';
+export const supabaseAnonKey = key || 'placeholder-key';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

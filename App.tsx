@@ -8,7 +8,8 @@ import { LoginPage } from './components/LoginPage';
 import { Settings } from './components/Settings';
 import { Ticket, ViewState, UserProfile, TicketStatus } from './types';
 import { Menu, X, Loader2, AlertTriangle } from 'lucide-react';
-import { supabase, isSupabaseConfigured } from './lib/supabaseClient';
+import { supabase, isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from './lib/supabaseClient';
+import { createClient } from '@supabase/supabase-js';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -297,12 +298,73 @@ const App: React.FC = () => {
       ]);
   };
 
-  const handleAddUser = async (newUser: UserProfile) => {
-    showNotification("Para criar usuários, use a página de registro do Supabase.");
+  const handleAddUser = async (newUserProfile: UserProfile, password?: string) => {
+      if (!isSupabaseConfigured) {
+          // Demo mode simulation
+          setUsers(prev => [...prev, newUserProfile]);
+          showNotification("Usuário criado (Demo).");
+          return;
+      }
+
+      if (!password) {
+          showNotification("Erro: Senha é obrigatória.");
+          return;
+      }
+
+      // TRICK: Create a separate client instance to create the user.
+      // If we use the main `supabase` instance, calling auth.signUp will log out the current admin!
+      const tempClient = createClient(supabaseUrl, supabaseAnonKey);
+
+      const email = newUserProfile.username.includes('@') ? newUserProfile.username : `${newUserProfile.username}@helpdesk.com`;
+
+      try {
+          // Pass metadata so the Trigger on auth.users can automatically insert into public.user_profiles
+          const { data, error } = await tempClient.auth.signUp({
+              email: email,
+              password: password,
+              options: {
+                  data: {
+                      name: newUserProfile.name,
+                      nivel: newUserProfile.nivel
+                  }
+              }
+          });
+
+          if (error) throw error;
+
+          if (data.user) {
+              showNotification(`Usuário ${newUserProfile.username} criado com sucesso!`);
+              // Refresh user list (give it a second for the trigger to run)
+              setTimeout(fetchAllUsers, 1000);
+          }
+      } catch (err: any) {
+          console.error("Error creating user:", err);
+          showNotification(`Erro ao criar usuário: ${err.message}`);
+      }
   };
 
-  const handleDeleteUser = (userId: string) => {
-     showNotification("Funcionalidade restrita ao painel do Supabase.");
+  const handleDeleteUser = async (userId: string) => {
+     if (!isSupabaseConfigured) {
+        setUsers(prev => prev.filter(u => u.id !== userId));
+        showNotification("Usuário removido (Demo).");
+        return;
+     }
+
+     // Note: Client-side deletion from auth.users is NOT possible with anon key.
+     // We can only delete from public.user_profiles if RLS allows it.
+     // However, the orphaned auth user will remain.
+     // For a real app, this requires a Supabase Edge Function (Admin API).
+     
+     // Deleting from profile at least removes access to the app logic (if we check profile existence on login)
+     const { error } = await supabase.from('user_profiles').delete().eq('id', userId);
+     
+     if (error) {
+         showNotification("Erro: Não foi possível remover (Requer Edge Function/Backend).");
+         console.error(error);
+     } else {
+         showNotification("Perfil removido do sistema.");
+         fetchAllUsers();
+     }
   };
 
   const showNotification = (msg: string) => {
