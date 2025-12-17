@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { UserProfile, UserLevel } from '../types';
-import { UserPlus, Shield, User, Trash2, Save, Lock, Info } from 'lucide-react';
+import { UserPlus, Shield, User, Trash2, Save, Lock, Info, Loader2 } from 'lucide-react';
 
 interface SettingsProps {
   users: UserProfile[];
-  onAddUser: (user: UserProfile, password?: string) => void;
+  onAddUser: (user: UserProfile, password?: string) => Promise<void>;
   onDeleteUser: (userId: string) => void;
 }
 
@@ -15,6 +15,7 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
     password: '', 
     nivel: 'Analista' as UserLevel
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Safe ID generator that works in HTTP (non-secure) contexts too
   const generateId = () => {
@@ -24,9 +25,11 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
     return Math.random().toString(36).substring(2) + Date.now().toString(36);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUser.name || !newUser.username || !newUser.password) return;
+    
+    setIsSubmitting(true);
 
     const userProfile: UserProfile = {
       id: generateId(), // This ID is temporary, Supabase Auth generates the real one
@@ -35,7 +38,10 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
       nivel: newUser.nivel
     };
 
-    onAddUser(userProfile, newUser.password);
+    await onAddUser(userProfile, newUser.password);
+    
+    setIsSubmitting(false);
+    // Only clear if successful (logic handled by parent usually, but here we assume success if no error thrown)
     setNewUser({ name: '', username: '', password: '', nivel: 'Analista' });
   };
 
@@ -116,10 +122,20 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                  </div>
                  <button 
                     type="submit"
-                    className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
+                    disabled={isSubmitting}
+                    className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
                  >
-                    <Save className="w-4 h-4" />
-                    Cadastrar Usuário
+                    {isSubmitting ? (
+                        <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Salvando...
+                        </>
+                    ) : (
+                        <>
+                            <Save className="w-4 h-4" />
+                            Cadastrar Usuário
+                        </>
+                    )}
                  </button>
               </form>
            </div>

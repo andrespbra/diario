@@ -132,7 +132,7 @@ const App: React.FC = () => {
         sicWithdrawal: t.sic_withdrawal,
         sicDeposit: t.sic_deposit,
         sicSensors: t.sic_sensors,
-        sicSmartPower: t.sic_smart_power,
+        sic_smart_power: t.sic_smart_power,
         clientWitnessName: t.client_witness_name,
         clientWitnessId: t.client_witness_id,
         validatedBy: t.validated_by,
@@ -318,7 +318,8 @@ const App: React.FC = () => {
       const email = newUserProfile.username.includes('@') ? newUserProfile.username : `${newUserProfile.username}@helpdesk.com`;
 
       try {
-          // Pass metadata so the Trigger on auth.users can automatically insert into public.user_profiles
+          // 1. Create User in Supabase Auth
+          // We still pass metadata for the trigger backup, but we will also manually insert below
           const { data, error } = await tempClient.auth.signUp({
               email: email,
               password: password,
@@ -333,9 +334,24 @@ const App: React.FC = () => {
           if (error) throw error;
 
           if (data.user) {
+              // 2. SAFETY NET: Manually insert into public.user_profiles using the ADMIN session (currentUser).
+              // This guarantees the user appears in the list even if the SQL Trigger fails or is delayed.
+              // Note: RLS must allow authenticated users to INSERT (as per sql.txt)
+              const { error: profileError } = await supabase.from('user_profiles').upsert({
+                  id: data.user.id,
+                  name: newUserProfile.name,
+                  username: newUserProfile.username,
+                  nivel: newUserProfile.nivel
+              });
+
+              if (profileError) {
+                  console.warn("Manual profile creation failed (Trigger might handle it):", profileError);
+              }
+
               showNotification(`Usuário ${newUserProfile.username} criado com sucesso!`);
-              // Refresh user list (give it a second for the trigger to run)
-              setTimeout(fetchAllUsers, 1000);
+              
+              // Immediate refresh
+              await fetchAllUsers();
           }
       } catch (err: any) {
           console.error("Error creating user:", err);
