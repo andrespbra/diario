@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Ticket, TicketPriority, TicketStatus } from '../types';
 import { Zap, AlertCircle, Clock, ShieldAlert, ChevronRight, MapPin, Monitor, CheckCircle2, Trophy, History } from 'lucide-react';
@@ -9,10 +10,8 @@ interface TigerTeamProps {
 export const TigerTeam: React.FC<TigerTeamProps> = ({ tickets }) => {
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
 
-  // Filter Tiger Team tickets (explicit flag or critical/escalated)
-  const allTigerTickets = tickets.filter(t => 
-    t.isTigerTeam || t.priority === TicketPriority.CRITICAL || t.isEscalated
-  );
+  // Filtro Estrito: Apenas chamados explicitamente marcados como Tiger Team (#198)
+  const allTigerTickets = tickets.filter(t => t.isTigerTeam === true);
 
   const activeMissions = allTigerTickets.filter(t => 
     t.status !== TicketStatus.CLOSED && t.status !== TicketStatus.RESOLVED
@@ -109,13 +108,13 @@ export const TigerTeam: React.FC<TigerTeamProps> = ({ tickets }) => {
                   <History className="w-12 h-12 text-slate-200 mb-2" />
                 )}
                 <p className="text-slate-500 font-medium text-center px-6">
-                  {activeTab === 'active' ? 'Sem ameaças críticas detectadas no momento.' : 'Nenhuma missão finalizada registrada.'}
+                  {activeTab === 'active' ? 'Nenhum chamado #198 ativo no radar.' : 'Nenhuma missão Tiger Team finalizada.'}
                 </p>
             </div>
         ) : (
             displayTickets.map((ticket) => (
-                <div key={ticket.id} className={`group relative bg-white border rounded-xl overflow-hidden transition-all shadow-sm hover:shadow-xl ${ticket.isTigerTeam ? 'border-amber-500/30' : 'border-slate-200'}`}>
-                    <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${ticket.isTigerTeam ? 'bg-amber-500' : 'bg-red-500'}`}></div>
+                <div key={ticket.id} className="group relative bg-white border border-amber-500/30 rounded-xl overflow-hidden transition-all shadow-sm hover:shadow-xl">
+                    <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-amber-500"></div>
                     
                     <div className="p-4 md:p-6 flex flex-col md:flex-row gap-4 md:items-center">
                         <div className="flex-1 space-y-3">
@@ -123,8 +122,8 @@ export const TigerTeam: React.FC<TigerTeamProps> = ({ tickets }) => {
                                 <span className="text-xs font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded uppercase">
                                     {ticket.taskId}
                                 </span>
-                                <span className={`text-xs font-bold ${ticket.isTigerTeam ? 'text-amber-600' : 'text-red-600'} flex items-center gap-1`}>
-                                    {ticket.isTigerTeam ? <><Zap className="w-3 h-3 animate-pulse" /> TIGER TEAM #198</> : '[ PRIORIDADE MÁXIMA ]'}
+                                <span className="text-xs font-bold text-amber-600 flex items-center gap-1">
+                                    <Zap className="w-3 h-3 animate-pulse" /> TIGER TEAM #198
                                 </span>
                                 {activeTab === 'active' ? (
                                   <span className="ml-auto md:ml-0 flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
@@ -172,36 +171,7 @@ export const TigerTeam: React.FC<TigerTeamProps> = ({ tickets }) => {
         )}
       </div>
       
-      {/* Specialized Tools Footer */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex items-center gap-3">
-            <div className="bg-amber-500 text-white p-2 rounded-lg">
-                <ShieldAlert className="w-5 h-5" />
-            </div>
-            <div>
-                <p className="text-[10px] font-bold text-amber-700 uppercase">Status do Time</p>
-                <p className="text-sm font-bold text-amber-900">Operacional</p>
-            </div>
-        </div>
-        <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-xl flex items-center gap-3">
-            <div className="bg-indigo-600 text-white p-2 rounded-lg">
-                <Zap className="w-5 h-5" />
-            </div>
-            <div>
-                <p className="text-[10px] font-bold text-indigo-700 uppercase">Resposta Média</p>
-                <p className="text-sm font-bold text-indigo-900">&lt; 15 min</p>
-            </div>
-        </div>
-        <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl flex items-center gap-3">
-            <div className="bg-slate-800 text-white p-2 rounded-lg">
-                <AlertCircle className="w-5 h-5" />
-            </div>
-            <div>
-                <p className="text-[10px] font-bold text-slate-700 uppercase">Filtro de Foco</p>
-                <p className="text-sm font-bold text-slate-900">Apenas Críticos</p>
-            </div>
-        </div>
-      </div>
+      {/* Footer info... */}
     </div>
   );
 };
