@@ -90,6 +90,7 @@ BEGIN
     DROP POLICY IF EXISTS "Admins can view all tickets" ON public.tickets;
     DROP POLICY IF EXISTS "Users can insert their own tickets" ON public.tickets;
     DROP POLICY IF EXISTS "Users can update their own tickets" ON public.tickets;
+    DROP POLICY IF EXISTS "Users and Admins can delete tickets" ON public.tickets;
 END $$;
 
 -- Políticas de Acesso (User Profiles)
@@ -128,6 +129,16 @@ FOR INSERT TO authenticated WITH CHECK (
 -- 4. Atualização (Admin edita qualquer um, Usuário edita o seu)
 CREATE POLICY "Users and Admins can update tickets" ON public.tickets
 FOR UPDATE TO authenticated USING (
+  auth.uid() = user_id OR 
+  EXISTS (
+    SELECT 1 FROM public.user_profiles 
+    WHERE id = auth.uid() AND nivel = 'Admin'
+  )
+);
+
+-- 5. Exclusão (Admin deleta qualquer um, Usuário deleta o seu)
+CREATE POLICY "Users and Admins can delete tickets" ON public.tickets
+FOR DELETE TO authenticated USING (
   auth.uid() = user_id OR 
   EXISTS (
     SELECT 1 FROM public.user_profiles 

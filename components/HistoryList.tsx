@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Ticket, TicketStatus, TicketPriority } from '../types';
-import { Search, MapPin, Clock, AlertTriangle, AlertOctagon, Wrench, CheckCircle2, XCircle, ArrowUpRight, Copy, Check } from 'lucide-react';
+import { Search, MapPin, Clock, AlertTriangle, AlertOctagon, Wrench, CheckCircle2, XCircle, ArrowUpRight, Copy, Check, Trash2 } from 'lucide-react';
 
 interface HistoryListProps {
   tickets: Ticket[];
+  onDelete: (ticketId: string) => void;
 }
 
-export const HistoryList: React.FC<HistoryListProps> = ({ tickets }) => {
+export const HistoryList: React.FC<HistoryListProps> = ({ tickets, onDelete }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
   const [copyFeedbackId, setCopyFeedbackId] = useState<string | null>(null);
@@ -65,6 +66,12 @@ ${ticket.analystAction}`;
     setTimeout(() => setCopyFeedbackId(null), 2000);
   };
 
+  const handleDeleteClick = (ticket: Ticket) => {
+    if (window.confirm(`Tem certeza que deseja excluir o chamado ${ticket.taskId || ticket.id}? Esta ação não pode ser desfeita.`)) {
+        onDelete(ticket.id);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500 h-full flex flex-col">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -111,7 +118,7 @@ ${ticket.analystAction}`;
                          <th className="px-6 py-4">Cliente / Local</th>
                          <th className="px-6 py-4">Detalhes</th>
                          <th className="px-6 py-4 w-32">Data</th>
-                         <th className="px-6 py-4 w-16 text-right">Ações</th>
+                         <th className="px-6 py-4 w-24 text-right">Ações</th>
                      </tr>
                  </thead>
                  <tbody className="divide-y divide-gray-100">
@@ -181,13 +188,22 @@ ${ticket.analystAction}`;
                                      </div>
                                  </td>
                                  <td className="px-6 py-4 align-top text-right">
-                                     <button
-                                        onClick={() => handleCopyTicketDetails(ticket)}
-                                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                                        title="Copiar detalhes do chamado"
-                                     >
-                                         {copyFeedbackId === ticket.id ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
-                                     </button>
+                                     <div className="flex justify-end gap-2">
+                                         <button
+                                            onClick={() => handleCopyTicketDetails(ticket)}
+                                            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                            title="Copiar detalhes do chamado"
+                                         >
+                                             {copyFeedbackId === ticket.id ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                                         </button>
+                                         <button
+                                            onClick={() => handleDeleteClick(ticket)}
+                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            title="Excluir chamado permanentemente"
+                                         >
+                                             <Trash2 className="w-4 h-4" />
+                                         </button>
+                                     </div>
                                  </td>
                              </tr>
                          ))

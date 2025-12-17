@@ -103,6 +103,18 @@ const App: React.FC = () => {
     }
   };
 
+  // 6. Delete Ticket
+  const handleDeleteTicket = async (ticketId: string) => {
+    try {
+      await DataManager.deleteTicket(ticketId);
+      setTickets(prev => prev.filter(t => t.id !== ticketId));
+      showNotification("Chamado excluído com sucesso.");
+    } catch (error) {
+      console.error(error);
+      showNotification("Erro ao excluir chamado.");
+    }
+  };
+
   // Logic to Enforce Password Change
   const handleForcePasswordChange = async (newPassword: string) => {
     if (!currentUser) return;
@@ -248,7 +260,7 @@ const App: React.FC = () => {
             {currentView === 'dashboard' && <Dashboard tickets={tickets} />}
             {currentView === 'new-ticket' && <NewTicketForm onSubmit={handleCreateTicket} currentUser={currentUser} />}
             {currentView === 'escalations' && <EscalationList tickets={tickets} onResolve={handleResolveTicket} />}
-            {currentView === 'history' && <HistoryList tickets={tickets} />}
+            {currentView === 'history' && <HistoryList tickets={tickets} onDelete={handleDeleteTicket} />}
             {currentView === 'settings' && currentUser.nivel === 'Admin' && (
                 <Settings users={users} onAddUser={handleAddUser} onDeleteUser={handleDeleteUser} />
             )}

@@ -219,7 +219,7 @@ export const DataManager = {
         sicWithdrawal: t.sic_withdrawal,
         sicDeposit: t.sic_deposit,
         sicSensors: t.sic_sensors,
-        sicSmartPower: t.sic_smart_power,
+        sic_smart_power: t.sic_smart_power,
         clientWitnessName: t.client_witness_name,
         clientWitnessId: t.client_witness_id,
         validatedBy: t.validated_by,
@@ -297,5 +297,10 @@ export const DataManager = {
         .eq('id', updatedTicket.id);
 
       if (error) throw error;
+  },
+
+  deleteTicket: async (ticketId: string): Promise<void> => {
+    const { error } = await supabase.from('tickets').delete().eq('id', ticketId);
+    if (error) throw error;
   }
 };
