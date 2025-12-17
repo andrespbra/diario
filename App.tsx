@@ -373,8 +373,12 @@ const App: React.FC = () => {
       });
       
       // Limpeza robusta do username para gerar email
-      // Remove espaços, converte para minúsculas
-      const cleanInput = newUserProfile.username.trim().replace(/\s+/g, '').toLowerCase();
+      // Remove espaços, converte para minúsculas, remove acentos
+      const cleanInput = newUserProfile.username
+          .trim()
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove accents
+          .replace(/[^a-zA-Z0-9@._-]/g, "") // Remove non-standard chars
+          .toLowerCase();
       
       let email = "";
       if (cleanInput.includes('@')) {
@@ -406,7 +410,8 @@ const App: React.FC = () => {
                   return; 
               }
               if (error.message.includes("invalid") || error.message.includes("format")) {
-                 showNotification(`Erro: Formato de email inválido (${email}). Tente outro login.`);
+                 // Try to catch invalid format more gracefully
+                 showNotification(`Erro: Formato de email inválido (${email}). Tente outro login sem caracteres especiais.`);
                  return;
               }
               if (error.message.includes("Password")) {
@@ -414,11 +419,13 @@ const App: React.FC = () => {
                   return;
               }
               if (error.message.includes("Database")) {
-                  showNotification("Erro no banco de dados. Verifique logs.");
+                  showNotification("Erro no banco de dados. Verifique logs ou contate suporte.");
                   return;
               }
               
-              throw error;
+              // Fallback for other errors
+              showNotification(`Erro: ${error.message}`);
+              return;
           }
 
           // 2. Auth criado com sucesso 
