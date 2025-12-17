@@ -220,8 +220,9 @@ export const DataManager = {
         hostname: ticket.hostname,
         subject: ticket.subject,
         analyst_name: ticket.analystName,
-        support_start_time: ticket.supportStartTime,
-        support_end_time: ticket.supportEndTime,
+        // Convert empty strings to null for timestamp columns to avoid SQL format errors
+        support_start_time: ticket.supportStartTime || null,
+        support_end_time: ticket.supportEndTime || null,
         description: ticket.description,
         analyst_action: ticket.analystAction,
         is_due_call: ticket.isDueCall,
