@@ -409,9 +409,9 @@ const App: React.FC = () => {
                   showNotification("Aviso: Email já cadastrado no sistema.");
                   return; 
               }
+              // Display raw error for better debugging of "invalid format" issues
               if (error.message.includes("invalid") || error.message.includes("format")) {
-                 // Try to catch invalid format more gracefully
-                 showNotification(`Erro: Formato de email inválido (${email}). Tente outro login sem caracteres especiais.`);
+                 showNotification(`Erro Supabase: ${error.message} (${email})`);
                  return;
               }
               if (error.message.includes("Password")) {

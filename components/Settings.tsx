@@ -22,6 +22,18 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Helper to preview email
+  const getPreviewEmail = (username: string) => {
+      const clean = username
+          .trim()
+          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^a-zA-Z0-9@._-]/g, "")
+          .toLowerCase();
+      
+      if (!clean) return '...';
+      return clean.includes('@') ? clean : `${clean}@helpdesk.com`;
+  };
+
   const generateId = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
         return crypto.randomUUID();
@@ -256,7 +268,12 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                                         placeholder="usuario.login"
                                     />
                                 </div>
-                                <p className="text-[10px] text-gray-400 pl-1">O email será gerado automaticamente se não fornecido.</p>
+                                <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2 flex items-start gap-2 mt-2">
+                                    <Mail className="w-3 h-3 text-indigo-500 mt-0.5 shrink-0" />
+                                    <p className="text-[10px] text-indigo-700">
+                                        Email a ser gerado: <span className="font-bold">{getPreviewEmail(newUser.username)}</span>
+                                    </p>
+                                </div>
                             </div>
 
                             <div className="space-y-1.5">
