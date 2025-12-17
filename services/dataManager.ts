@@ -181,9 +181,12 @@ export const DataManager = {
       .select('*')
       .order('created_at', { ascending: false });
 
-    // 4. Apply Logic: If NOT Admin, filter by own ID.
-    // Admin sees everything. Analista sees only their own tickets.
-    if (profile && profile.nivel !== 'Admin') {
+    // 4. Apply Logic: 
+    // Secure by default: Only if we are 100% sure it is 'Admin' do we show everything.
+    // If profile is null or level is not Admin, we filter by the user's ID.
+    const isAdmin = profile?.nivel === 'Admin';
+
+    if (!isAdmin) {
         query = query.eq('user_id', user.id);
     }
 

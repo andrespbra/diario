@@ -77,22 +77,63 @@ CREATE TABLE IF NOT EXISTS public.tickets (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 2. Row Level Security (RLS)
+-- 2. Row Level Security (RLS) - SEGURANÇA
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
 
--- Limpa policies antigas para recriar sem erro
+-- Remove policies antigas e permissivas
 DO $$ 
 BEGIN
     DROP POLICY IF EXISTS "Enable all access for authenticated users" ON public.user_profiles;
     DROP POLICY IF EXISTS "Enable all access for authenticated users" ON public.tickets;
+    DROP POLICY IF EXISTS "Users can view their own tickets" ON public.tickets;
+    DROP POLICY IF EXISTS "Admins can view all tickets" ON public.tickets;
+    DROP POLICY IF EXISTS "Users can insert their own tickets" ON public.tickets;
+    DROP POLICY IF EXISTS "Users can update their own tickets" ON public.tickets;
 END $$;
 
-CREATE POLICY "Enable all access for authenticated users" ON public.user_profiles
-FOR ALL USING (true) WITH CHECK (true);
+-- Políticas de Acesso (User Profiles)
+-- Todos podem ler perfis (necessário para identificar nomes de usuários)
+CREATE POLICY "Allow read access for authenticated users" ON public.user_profiles
+FOR SELECT TO authenticated USING (true);
 
-CREATE POLICY "Enable all access for authenticated users" ON public.tickets
-FOR ALL USING (true) WITH CHECK (true);
+-- Apenas o próprio usuário ou trigger pode editar (Admin logicamente controlado via API, mas banco protege updates diretos)
+CREATE POLICY "Users can update own profile" ON public.user_profiles
+FOR UPDATE TO authenticated USING (auth.uid() = id);
+
+
+-- Políticas de Acesso (Tickets)
+
+-- 1. Analistas veem apenas seus próprios chamados
+CREATE POLICY "Users can view their own tickets" ON public.tickets
+FOR SELECT TO authenticated USING (
+  auth.uid() = user_id
+);
+
+-- 2. Admins veem TUDO
+CREATE POLICY "Admins can view all tickets" ON public.tickets
+FOR SELECT TO authenticated USING (
+  EXISTS (
+    SELECT 1 FROM public.user_profiles 
+    WHERE id = auth.uid() AND nivel = 'Admin'
+  )
+);
+
+-- 3. Inserção permitida se o user_id for o próprio usuário
+CREATE POLICY "Users can insert their own tickets" ON public.tickets
+FOR INSERT TO authenticated WITH CHECK (
+  auth.uid() = user_id
+);
+
+-- 4. Atualização (Admin edita qualquer um, Usuário edita o seu)
+CREATE POLICY "Users and Admins can update tickets" ON public.tickets
+FOR UPDATE TO authenticated USING (
+  auth.uid() = user_id OR 
+  EXISTS (
+    SELECT 1 FROM public.user_profiles 
+    WHERE id = auth.uid() AND nivel = 'Admin'
+  )
+);
 
 -- 3. Trigger para Novos Usuários (Atualizado)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
