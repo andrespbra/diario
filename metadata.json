@@ -1,0 +1,5 @@
+{
+  "name": "HelpDesk AI Pro",
+  "description": "A smart help desk application for logging technician phone support and managing escalated tickets with AI assistance.",
+  "requestFramePermissions": []
+}

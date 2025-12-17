@@ -1,0 +1,99 @@
+-- 1. Create Tables
+
+-- Tabela de Perfis de Usuário
+CREATE TABLE public.user_profiles (
+  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
+  name TEXT NOT NULL,
+  username TEXT,
+  nivel TEXT DEFAULT 'Analista'
+);
+
+-- Tabela de Chamados (Tickets)
+CREATE TABLE public.tickets (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES public.user_profiles(id),
+  
+  -- Informações do Cliente/Local
+  customer_name TEXT,
+  location_name TEXT,
+  
+  -- Detalhes Técnicos
+  task_id TEXT,
+  service_request TEXT,
+  hostname TEXT,
+  subject TEXT,
+  
+  -- Detalhes do Suporte
+  analyst_name TEXT,
+  support_start_time TIMESTAMPTZ,
+  support_end_time TIMESTAMPTZ,
+  description TEXT,
+  analyst_action TEXT,
+  
+  -- Validadores e Peças (Booleanos)
+  is_due_call BOOLEAN DEFAULT false,
+  used_acfs BOOLEAN DEFAULT false,
+  has_ink_staining BOOLEAN DEFAULT false,
+  part_replaced BOOLEAN DEFAULT false,
+  part_description TEXT,
+  
+  -- Tags
+  tag_vldd BOOLEAN DEFAULT false,
+  tag_nlvdd BOOLEAN DEFAULT false,
+  
+  -- Validação Extra
+  test_with_card BOOLEAN DEFAULT false,
+  sic_withdrawal BOOLEAN DEFAULT false,
+  sic_deposit BOOLEAN DEFAULT false,
+  sic_sensors BOOLEAN DEFAULT false,
+  sic_smart_power BOOLEAN DEFAULT false,
+  
+  -- Testemunha
+  client_witness_name TEXT,
+  client_witness_id TEXT,
+  
+  -- Validação
+  validated_by TEXT,
+  validated_at TIMESTAMPTZ,
+  
+  -- AI e Status
+  ai_suggested_solution TEXT,
+  status TEXT,
+  priority TEXT,
+  is_escalated BOOLEAN DEFAULT false,
+  
+  created_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- 2. Row Level Security (RLS) - Permite tudo para este demo
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Enable all access for authenticated users" ON public.user_profiles
+FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Enable all access for authenticated users" ON public.tickets
+FOR ALL USING (true) WITH CHECK (true);
+
+-- 3. Trigger para criar UserProfile automaticamente ao criar Auth User
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.user_profiles (id, name, username, nivel)
+  VALUES (
+    new.id, 
+    COALESCE(new.raw_user_meta_data->>'name', 'Usuário Novo'),
+    split_part(new.email, '@', 1), -- Pega o nome antes do @ como username
+    COALESCE(new.raw_user_meta_data->>'nivel', 'Analista')
+  );
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- 4. Criar Usuário Admin Inicial (Opcional, se rodar manualmente)
+-- Isso deve ser feito via API do Auth ou Painel, mas aqui está o insert do profile caso o Auth User já exista:
+-- INSERT INTO public.user_profiles (id, name, username, nivel) VALUES ('ID_DO_USER_AUTH', 'Admin Sistema', 'admin', 'Admin');
