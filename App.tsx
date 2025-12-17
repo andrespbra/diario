@@ -6,6 +6,7 @@ import { EscalationList } from './components/EscalationList';
 import { HistoryList } from './components/HistoryList';
 import { LoginPage } from './components/LoginPage';
 import { Settings } from './components/Settings';
+import { ChangePassword } from './components/ChangePassword';
 import { Ticket, ViewState, UserProfile, TicketStatus } from './types';
 import { Menu, X, Loader2, AlertTriangle, KeyRound } from 'lucide-react';
 import { supabase, isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from './lib/supabaseClient';
@@ -91,9 +92,6 @@ const App: React.FC = () => {
         setCurrentUser(profile);
         fetchTickets(); // Load tickets once user is known
         if (profile.nivel === 'Admin') fetchAllUsers();
-        
-        // Logic check: If mustChangePassword is true, you might want to force a redirect here
-        // For now we just load the user.
       }
     } catch (e) {
         console.error("Profile fetch error", e);
@@ -281,6 +279,37 @@ const App: React.FC = () => {
     setTickets([]);
   };
 
+  // Logic to Enforce Password Change
+  const handleForcePasswordChange = async (newPassword: string) => {
+    if (!currentUser) return;
+
+    if (!isSupabaseConfigured) {
+        // Demo Mode Simulation
+        setCurrentUser({ ...currentUser, mustChangePassword: false });
+        showNotification("Senha alterada (Modo Demo).");
+        return;
+    }
+
+    // 1. Update Auth Password (Supabase User)
+    const { error: authError } = await supabase.auth.updateUser({ password: newPassword });
+    if (authError) throw authError;
+
+    // 2. Update Profile Table (must_change_password = false)
+    const { error: profileError } = await supabase
+        .from('user_profiles')
+        .update({ must_change_password: false })
+        .eq('id', currentUser.id);
+
+    if (profileError) {
+        console.error("Failed to update profile status", profileError);
+        // We continue anyway since auth password was changed
+    }
+
+    // 3. Update Local State
+    setCurrentUser(prev => prev ? ({ ...prev, mustChangePassword: false }) : null);
+    showNotification("Senha atualizada com sucesso!");
+  };
+
   // Special handler for Demo Mode Login
   const handleDemoLogin = () => {
       setConfigError(false);
@@ -343,7 +372,6 @@ const App: React.FC = () => {
 
       try {
           // 1. Tentar criar o usuário no Auth
-          // Passamos os metadados para que a Trigger (definida no SQL) preencha a tabela user_profiles corretamente
           const { data, error } = await tempClient.auth.signUp({
               email: email,
               password: password,
@@ -371,9 +399,6 @@ const App: React.FC = () => {
 
           // 2. Auth criado com sucesso 
           if (data.user) {
-              // A Trigger do banco deve ter criado o perfil, mas garantimos atualização aqui se necessário
-              // ou apenas recarregamos a lista
-              
               if (!data.session) {
                   showNotification("Usuário criado! (Confirmação de email pode ser necessária).");
               } else {
@@ -397,7 +422,6 @@ const App: React.FC = () => {
         return;
      }
 
-     // Remoção client-side apenas do perfil (Auth requer função de admin ou delete cascade)
      const { error } = await supabase.from('user_profiles').delete().eq('id', userId);
      
      if (error) {
@@ -425,6 +449,23 @@ const App: React.FC = () => {
   // If no user is logged in, show Login Page
   if (!currentUser) {
     return <LoginPage onDemoLogin={handleDemoLogin} />;
+  }
+
+  // FORCE PASSWORD CHANGE SCREEN
+  if (currentUser.mustChangePassword) {
+      return (
+          <>
+            {notification && (
+                <div className="fixed top-4 right-4 z-50 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg animate-in slide-in-from-top-2">
+                    <span className="text-sm font-medium">{notification}</span>
+                </div>
+            )}
+            <ChangePassword 
+                username={currentUser.name} 
+                onPasswordChange={handleForcePasswordChange} 
+            />
+          </>
+      );
   }
 
   return (
@@ -459,14 +500,6 @@ const App: React.FC = () => {
                  </div>
              )}
              
-             {/* Password Change Warning */}
-             {currentUser.mustChangePassword && (
-                <div className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded font-bold flex items-center gap-1">
-                    <KeyRound className="w-3 h-3" />
-                    Alterar Senha
-                </div>
-             )}
-
              <div className="text-right">
                 <p className="text-sm font-bold text-gray-800">{currentUser.name}</p>
                 <div className="flex items-center justify-end gap-1">
