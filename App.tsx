@@ -7,7 +7,7 @@ import { HistoryList } from './components/HistoryList';
 import { LoginPage } from './components/LoginPage';
 import { Settings } from './components/Settings';
 import { Ticket, ViewState, UserProfile, TicketStatus } from './types';
-import { Menu, X, Loader2, AlertTriangle } from 'lucide-react';
+import { Menu, X, Loader2, AlertTriangle, KeyRound } from 'lucide-react';
 import { supabase, isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from './lib/supabaseClient';
 import { createClient } from '@supabase/supabase-js';
 
@@ -79,9 +79,21 @@ const App: React.FC = () => {
       }
       
       if (data) {
-        setCurrentUser(data as UserProfile);
+        // Map snake_case from DB to camelCase for TS
+        const profile: UserProfile = {
+            id: data.id,
+            name: data.name,
+            username: data.username,
+            nivel: data.nivel,
+            mustChangePassword: data.must_change_password
+        };
+
+        setCurrentUser(profile);
         fetchTickets(); // Load tickets once user is known
-        if (data.nivel === 'Admin') fetchAllUsers();
+        if (profile.nivel === 'Admin') fetchAllUsers();
+        
+        // Logic check: If mustChangePassword is true, you might want to force a redirect here
+        // For now we just load the user.
       }
     } catch (e) {
         console.error("Profile fetch error", e);
@@ -150,7 +162,16 @@ const App: React.FC = () => {
   const fetchAllUsers = async () => {
       if (!isSupabaseConfigured) return;
       const { data } = await supabase.from('user_profiles').select('*');
-      if (data) setUsers(data as UserProfile[]);
+      if (data) {
+          const mappedUsers: UserProfile[] = data.map((u: any) => ({
+              id: u.id,
+              name: u.name,
+              username: u.username,
+              nivel: u.nivel,
+              mustChangePassword: u.must_change_password
+          }));
+          setUsers(mappedUsers);
+      }
   };
 
   // 4. Create Ticket (Mapping CamelCase to Snake_case)
@@ -267,7 +288,8 @@ const App: React.FC = () => {
           id: 'demo-user-id',
           name: 'Admin Demo',
           username: 'admin@demo.com',
-          nivel: 'Admin'
+          nivel: 'Admin',
+          mustChangePassword: false
       });
       // Add some sample data for demo
       setTickets([
@@ -302,7 +324,7 @@ const App: React.FC = () => {
   const handleAddUser = async (newUserProfile: UserProfile, password?: string) => {
       if (!isSupabaseConfigured) {
           // Demo mode simulation
-          setUsers(prev => [...prev, newUserProfile]);
+          setUsers(prev => [...prev, { ...newUserProfile, mustChangePassword: true }]);
           showNotification("Usuário criado (Demo).");
           return;
       }
@@ -321,13 +343,15 @@ const App: React.FC = () => {
 
       try {
           // 1. Tentar criar o usuário no Auth
+          // Passamos os metadados para que a Trigger (definida no SQL) preencha a tabela user_profiles corretamente
           const { data, error } = await tempClient.auth.signUp({
               email: email,
               password: password,
               options: {
                   data: {
                       name: newUserProfile.name,
-                      nivel: newUserProfile.nivel
+                      nivel: newUserProfile.nivel,
+                      mustChangePassword: true // Novo usuário deve mudar senha
                   }
               }
           });
@@ -347,27 +371,17 @@ const App: React.FC = () => {
 
           // 2. Auth criado com sucesso 
           if (data.user) {
-              // Create/Update profile regardless of session state
-              const { error: profileError } = await supabase.from('user_profiles').upsert({
-                  id: data.user.id,
-                  name: newUserProfile.name,
-                  username: usernameClean,
-                  nivel: newUserProfile.nivel
-              });
-
-              if (profileError) {
-                  console.error("Profile creation error:", profileError);
-                  showNotification("Usuário criado no Auth, mas falha ao salvar perfil.");
+              // A Trigger do banco deve ter criado o perfil, mas garantimos atualização aqui se necessário
+              // ou apenas recarregamos a lista
+              
+              if (!data.session) {
+                  showNotification("Usuário criado! (Confirmação de email pode ser necessária).");
               } else {
-                  // Check if email confirmation is required/pending
-                  if (!data.session) {
-                      showNotification("Usuário criado! (Atenção: Supabase está exigindo confirmação de email).");
-                      console.warn("User created but no session returned. Please disable 'Confirm Email' in Supabase Dashboard > Authentication > Providers > Email if you are using fake emails.");
-                  } else {
-                      showNotification("Usuário cadastrado e ativo!");
-                  }
-                  setTimeout(fetchAllUsers, 500);
+                  showNotification("Usuário cadastrado com sucesso!");
               }
+              
+              // Pequeno delay para garantir que o banco processou a trigger
+              setTimeout(fetchAllUsers, 1000);
           }
 
       } catch (err: any) {
@@ -383,7 +397,7 @@ const App: React.FC = () => {
         return;
      }
 
-     // Remoção client-side apenas do perfil (Auth requer função de admin)
+     // Remoção client-side apenas do perfil (Auth requer função de admin ou delete cascade)
      const { error } = await supabase.from('user_profiles').delete().eq('id', userId);
      
      if (error) {
@@ -444,6 +458,15 @@ const App: React.FC = () => {
                      Modo Demo (Sem Backend)
                  </div>
              )}
+             
+             {/* Password Change Warning */}
+             {currentUser.mustChangePassword && (
+                <div className="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded font-bold flex items-center gap-1">
+                    <KeyRound className="w-3 h-3" />
+                    Alterar Senha
+                </div>
+             )}
+
              <div className="text-right">
                 <p className="text-sm font-bold text-gray-800">{currentUser.name}</p>
                 <div className="flex items-center justify-end gap-1">

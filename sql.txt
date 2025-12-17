@@ -1,11 +1,13 @@
 -- 1. Create Tables
 
--- Tabela de Perfis de Usuário
+-- Tabela de Perfis de Usuário (Gerenciamento de Login e Metadados)
+-- Campos solicitados: id, username, (password no auth), role (nivel), nome, mustChangePassword
 CREATE TABLE public.user_profiles (
-  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
-  name TEXT NOT NULL,
-  username TEXT,
-  nivel TEXT DEFAULT 'Analista'
+  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY, -- ID
+  name TEXT NOT NULL,                                              -- Nome
+  username TEXT,                                                   -- Username
+  nivel TEXT DEFAULT 'Analista',                                   -- Role (Analista/Admin)
+  must_change_password BOOLEAN DEFAULT true                        -- mustChangePassword
 );
 
 -- Tabela de Chamados (Tickets)
@@ -65,7 +67,7 @@ CREATE TABLE public.tickets (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 2. Row Level Security (RLS) - Permite tudo para este demo
+-- 2. Row Level Security (RLS)
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
 
@@ -75,25 +77,25 @@ FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all access for authenticated users" ON public.tickets
 FOR ALL USING (true) WITH CHECK (true);
 
--- 3. Trigger para criar UserProfile automaticamente ao criar Auth User
+-- 3. Trigger Atualizado para novos usuários
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
-  INSERT INTO public.user_profiles (id, name, username, nivel)
+  INSERT INTO public.user_profiles (id, name, username, nivel, must_change_password)
   VALUES (
     new.id, 
     COALESCE(new.raw_user_meta_data->>'name', 'Usuário Novo'),
-    split_part(new.email, '@', 1), -- Pega o nome antes do @ como username
-    COALESCE(new.raw_user_meta_data->>'nivel', 'Analista')
+    split_part(new.email, '@', 1),
+    COALESCE(new.raw_user_meta_data->>'nivel', 'Analista'),
+    COALESCE((new.raw_user_meta_data->>'mustChangePassword')::boolean, true)
   );
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- Remove a trigger anterior se existir para evitar duplicidade ao recriar
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
-
--- 4. Criar Usuário Admin Inicial (Opcional, se rodar manualmente)
--- Isso deve ser feito via API do Auth ou Painel, mas aqui está o insert do profile caso o Auth User já exista:
--- INSERT INTO public.user_profiles (id, name, username, nivel) VALUES ('ID_DO_USER_AUTH', 'Admin Sistema', 'admin', 'Admin');

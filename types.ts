@@ -1,3 +1,4 @@
+
 export enum TicketStatus {
   OPEN = 'Aberto',
   IN_PROGRESS = 'Em Andamento',
@@ -14,13 +15,13 @@ export enum TicketPriority {
 
 export type UserLevel = 'Analista' | 'Admin';
 
-// Mapped to Supabase table 'perfis_usuario'
+// Mapped to Supabase table 'user_profiles'
 export interface UserProfile {
-  id: string;       // uuid (PK of perfis_usuario)
-  user_id?: string; // uuid (FK to auth.users)
-  username: string; // login/email
-  name: string;
-  nivel: UserLevel; // 'Analista' (Default) or 'Admin'
+  id: string;       // uuid
+  username: string; // login
+  name: string;     // nome
+  nivel: UserLevel; // role
+  mustChangePassword?: boolean; // mustChangePassword
 }
 
 export interface Ticket {

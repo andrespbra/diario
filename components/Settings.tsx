@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile, UserLevel } from '../types';
-import { UserPlus, Shield, User, Trash2, Save, Lock, Loader2, Search, X, Mail, Key, Eye, EyeOff, CheckCircle2 } from 'lucide-react';
+import { UserPlus, Shield, User, Trash2, Save, Lock, Loader2, Search, X, Mail, Key, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface SettingsProps {
   users: UserProfile[];
@@ -39,7 +39,8 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
       id: generateId(),
       name: newUser.name,
       username: newUser.username,
-      nivel: newUser.nivel
+      nivel: newUser.nivel,
+      mustChangePassword: true // Default for new users created via settings
     };
 
     await onAddUser(userProfile, newUser.password);
@@ -64,7 +65,7 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
              <Shield className="w-6 h-6 text-indigo-600" />
              Gestão de Acessos
            </h1>
-           <p className="text-sm text-gray-500">Controle de usuários e permissões do sistema.</p>
+           <p className="text-sm text-gray-500">Controle de usuários, senhas e permissões.</p>
         </div>
         
         <div className="flex gap-3">
@@ -96,6 +97,7 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                    <tr>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Usuário</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Login</th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status Senha</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Perfil</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Ações</th>
                    </tr>
@@ -103,7 +105,7 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                 <tbody className="divide-y divide-gray-100">
                    {filteredUsers.length === 0 ? (
                        <tr>
-                           <td colSpan={4} className="px-6 py-12 text-center text-gray-400">
+                           <td colSpan={5} className="px-6 py-12 text-center text-gray-400">
                                <div className="flex flex-col items-center">
                                    <div className="w-16 h-16 bg-gray-50 rounded-full flex items-center justify-center mb-3">
                                         <User className="w-8 h-8 text-gray-300" />
@@ -131,6 +133,17 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                                     <Mail className="w-3.5 h-3.5 text-gray-400" />
                                     <span className="text-sm font-medium">{user.username}</span>
                                 </div>
+                             </td>
+                             <td className="px-6 py-4">
+                                {user.mustChangePassword ? (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-orange-100 text-orange-700 border border-orange-200">
+                                        <AlertCircle className="w-3 h-3" /> Troca Pendente
+                                    </span>
+                                ) : (
+                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 border border-green-200">
+                                        <CheckCircle2 className="w-3 h-3" /> OK
+                                    </span>
+                                )}
                              </td>
                              <td className="px-6 py-4">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-bold border ${
@@ -269,6 +282,9 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                                         {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                     </button>
                                 </div>
+                                <p className="text-[10px] text-orange-500 pl-1 flex items-center gap-1">
+                                    <AlertCircle className="w-3 h-3" /> O usuário precisará alterar esta senha no próximo login.
+                                </p>
                             </div>
                         </div>
 
