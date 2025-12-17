@@ -196,9 +196,10 @@ ${ticket.analystAction}`;
                                          >
                                              {copyFeedbackId === ticket.id ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                                          </button>
+                                         <div className="w-px bg-gray-200 mx-1"></div>
                                          <button
                                             onClick={() => handleDeleteClick(ticket)}
-                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                            className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors group-hover:text-red-400"
                                             title="Excluir chamado permanentemente"
                                          >
                                              <Trash2 className="w-4 h-4" />
