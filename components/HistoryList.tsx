@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Ticket, TicketStatus, TicketPriority } from '../types';
-import { Search, MapPin, Clock, AlertTriangle, AlertOctagon, Wrench, CheckCircle2, XCircle, ArrowUpRight } from 'lucide-react';
+import { Search, MapPin, Clock, AlertTriangle, AlertOctagon, Wrench, CheckCircle2, XCircle, ArrowUpRight, Copy, Check } from 'lucide-react';
 
 interface HistoryListProps {
   tickets: Ticket[];
@@ -9,6 +9,7 @@ interface HistoryListProps {
 export const HistoryList: React.FC<HistoryListProps> = ({ tickets }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [copyFeedbackId, setCopyFeedbackId] = useState<string | null>(null);
 
   const filteredTickets = tickets.filter(ticket => {
     const matchesSearch = 
@@ -25,7 +26,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({ tickets }) => {
   const getStatusBadge = (status: TicketStatus, isEscalated: boolean) => {
       if (isEscalated && status !== TicketStatus.RESOLVED && status !== TicketStatus.CLOSED) {
           return (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200" title="Este chamado foi escalonado">
                   <AlertOctagon className="w-3 h-3 mr-1" />
                   Escalonado
               </span>
@@ -34,16 +35,34 @@ export const HistoryList: React.FC<HistoryListProps> = ({ tickets }) => {
 
       switch(status) {
           case TicketStatus.OPEN: 
-            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200">Aberto</span>;
+            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200" title="Chamado aberto aguardando resolução">Aberto</span>;
           case TicketStatus.IN_PROGRESS: 
-            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">Em Andamento</span>;
+            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200" title="Chamado em atendimento">Em Andamento</span>;
           case TicketStatus.RESOLVED: 
-            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">Resolvido</span>;
+            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200" title="Chamado resolvido com sucesso">Resolvido</span>;
           case TicketStatus.CLOSED: 
-            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">Fechado</span>;
+            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200" title="Chamado finalizado">Fechado</span>;
           default: 
             return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{status}</span>;
       }
+  };
+
+  const handleCopyTicketDetails = (ticket: Ticket) => {
+    const textToCopy = `DETALHES DO CHAMADO
+-------------------
+TASK: ${ticket.taskId || 'N/A'}
+CLIENTE: ${ticket.customerName}
+LOCAL: ${ticket.locationName}
+-------------------
+DEFEITO:
+${ticket.description}
+
+AÇÃO TÉCNICO:
+${ticket.analystAction}`;
+
+    navigator.clipboard.writeText(textToCopy);
+    setCopyFeedbackId(ticket.id);
+    setTimeout(() => setCopyFeedbackId(null), 2000);
   };
 
   return (
@@ -92,12 +111,13 @@ export const HistoryList: React.FC<HistoryListProps> = ({ tickets }) => {
                          <th className="px-6 py-4">Cliente / Local</th>
                          <th className="px-6 py-4">Detalhes</th>
                          <th className="px-6 py-4 w-32">Data</th>
+                         <th className="px-6 py-4 w-16 text-right">Ações</th>
                      </tr>
                  </thead>
                  <tbody className="divide-y divide-gray-100">
                      {filteredTickets.length === 0 ? (
                          <tr>
-                             <td colSpan={5} className="px-6 py-12 text-center">
+                             <td colSpan={6} className="px-6 py-12 text-center">
                                  <div className="flex flex-col items-center justify-center text-gray-400">
                                      <Search className="w-8 h-8 mb-2 opacity-50" />
                                      <p>Nenhum chamado encontrado com os filtros atuais.</p>
@@ -111,7 +131,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({ tickets }) => {
                                      <div className="flex flex-col gap-2 items-start">
                                          {getStatusBadge(ticket.status, ticket.isEscalated)}
                                          {ticket.priority === TicketPriority.CRITICAL && !ticket.isEscalated && (
-                                            <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100">CRÍTICO</span>
+                                            <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100" title="Prioridade Crítica">CRÍTICO</span>
                                          )}
                                      </div>
                                  </td>
@@ -134,11 +154,11 @@ export const HistoryList: React.FC<HistoryListProps> = ({ tickets }) => {
                                  <td className="px-6 py-4 align-top">
                                      <div className="max-w-md">
                                          <p className="text-sm font-medium text-gray-900 mb-1">{ticket.subject}</p>
-                                         <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed" title={ticket.description}>
+                                         <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed cursor-help" title={ticket.description}>
                                             {ticket.description}
                                          </p>
                                          {ticket.partReplaced && (
-                                            <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded w-fit border border-amber-100">
+                                            <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded w-fit border border-amber-100" title={`Peça trocada: ${ticket.partDescription}`}>
                                                 <Wrench className="w-3 h-3" />
                                                 <span className="font-medium">Troca de Peça:</span> {ticket.partDescription}
                                             </div>
@@ -159,6 +179,15 @@ export const HistoryList: React.FC<HistoryListProps> = ({ tickets }) => {
                                              {new Date(ticket.createdAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
                                          </span>
                                      </div>
+                                 </td>
+                                 <td className="px-6 py-4 align-top text-right">
+                                     <button
+                                        onClick={() => handleCopyTicketDetails(ticket)}
+                                        className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                        title="Copiar detalhes do chamado"
+                                     >
+                                         {copyFeedbackId === ticket.id ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                                     </button>
                                  </td>
                              </tr>
                          ))

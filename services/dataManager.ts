@@ -164,10 +164,30 @@ export const DataManager = {
   // --- TICKETS MANAGEMENT ---
 
   getTickets: async (): Promise<Ticket[]> => {
-    const { data, error } = await supabase
+    // 1. Check who is logged in
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    // 2. Get User Profile to check Level (Admin or Analista)
+    const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('nivel')
+        .eq('id', user.id)
+        .single();
+
+    // 3. Build Query
+    let query = supabase
       .from('tickets')
       .select('*')
       .order('created_at', { ascending: false });
+
+    // 4. Apply Logic: If NOT Admin, filter by own ID.
+    // Admin sees everything. Analista sees only their own tickets.
+    if (profile && profile.nivel !== 'Admin') {
+        query = query.eq('user_id', user.id);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
 
