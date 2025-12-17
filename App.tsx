@@ -333,13 +333,12 @@ const App: React.FC = () => {
           if (error) {
               if (error.message.includes("registered") || error.message.includes("exists")) {
                   showNotification("Aviso: Email já cadastrado no sistema.");
-                  // Não podemos continuar pois não temos o ID do usuário existente
                   return; 
               }
               throw error;
           }
 
-          // 2. Se o Auth foi criado (ou pendente de confirmação), garantimos o perfil
+          // 2. Auth criado com sucesso (independente de confirmação de email no backend, assumimos sucesso no frontend)
           if (data.user) {
               const { error: profileError } = await supabase.from('user_profiles').upsert({
                   id: data.user.id, // ID retornado pelo signUp
@@ -355,9 +354,6 @@ const App: React.FC = () => {
                   showNotification("Usuário cadastrado com sucesso!");
                   setTimeout(fetchAllUsers, 500);
               }
-          } else {
-               // Caso raro onde data.user é null (ex: configurações estritas de confirmação)
-               showNotification("Cadastro enviado. Verifique se a confirmação por email é necessária.");
           }
 
       } catch (err: any) {
