@@ -17,18 +17,8 @@ export const analyzeTicketProblem = async (problemDescription: string): Promise<
   }
 
   try {
-    // Initialize inside the function to avoid top-level crashes if process.env is missing in browser
-    const apiKey = process.env.API_KEY;
-    if (!apiKey) {
-        console.warn("Gemini API Key missing");
-        return {
-            suggestedSolution: "Chave de API não configurada.",
-            recommendedPriority: TicketPriority.MEDIUM,
-            isEscalationRecommended: false
-        };
-    }
-
-    const ai = new GoogleGenAI({ apiKey });
+    // Per strict coding guidelines: The API key must be obtained exclusively from the environment variable process.env.API_KEY.
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
@@ -74,7 +64,7 @@ export const analyzeTicketProblem = async (problemDescription: string): Promise<
   } catch (error) {
     console.error("Error analyzing ticket with Gemini:", error);
     return {
-      suggestedSolution: "Erro ao consultar IA. Verifique a conexão.",
+      suggestedSolution: "Erro ao consultar IA. Verifique o console.",
       recommendedPriority: TicketPriority.MEDIUM,
       isEscalationRecommended: false
     };

@@ -6,7 +6,6 @@
     <title>HelpDesk AI Pro</title>
     <script>
       // Global Polyfill for process.env to prevent crashes in libraries expecting Node environment
-      // This must run BEFORE any module imports
       window.process = { env: { NODE_ENV: 'production' } };
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -32,21 +31,22 @@
         background: #94a3b8;
       }
     </style>
-  <script type="importmap">
+<script type="importmap">
 {
   "imports": {
-    "react/": "https://esm.sh/react@^19.2.3/",
     "react": "https://esm.sh/react@^19.2.3",
     "react-dom/": "https://esm.sh/react-dom@^19.2.3/",
+    "react/": "https://esm.sh/react@^19.2.3/",
     "@google/genai": "https://esm.sh/@google/genai@^1.33.0",
     "lucide-react": "https://esm.sh/lucide-react@^0.561.0",
     "recharts": "https://esm.sh/recharts@^3.6.0",
-    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.39.0"
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@^2.88.0"
   }
 }
 </script>
 </head>
   <body>
     <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
