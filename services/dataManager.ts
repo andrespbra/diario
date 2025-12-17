@@ -1,3 +1,4 @@
+
 import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabaseClient';
 import { createClient } from '@supabase/supabase-js';
 import { Ticket, UserProfile } from '../types';
@@ -219,7 +220,7 @@ export const DataManager = {
         sicWithdrawal: t.sic_withdrawal,
         sicDeposit: t.sic_deposit,
         sicSensors: t.sic_sensors,
-        sic_smart_power: t.sic_smart_power,
+        sicSmartPower: t.sic_smart_power, // FIXED TYPO: sic_smart_power -> sicSmartPower
         clientWitnessName: t.client_witness_name,
         clientWitnessId: t.client_witness_id,
         validatedBy: t.validated_by,

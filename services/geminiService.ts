@@ -1,3 +1,4 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
 import { TicketPriority } from '../types';
 
@@ -20,8 +21,9 @@ export const analyzeTicketProblem = async (problemDescription: string): Promise<
     // Per strict coding guidelines: The API key must be obtained exclusively from the environment variable process.env.API_KEY.
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+    // Using gemini-3-flash-preview for basic text analysis and classification tasks.
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: `Analise a seguinte descrição de problema de suporte técnico: "${problemDescription}".
       Retorne um JSON com:
       1. Uma solução técnica sugerida concisa (max 2 frases).
@@ -41,6 +43,7 @@ export const analyzeTicketProblem = async (problemDescription: string): Promise<
       }
     });
 
+    // Accessing .text property directly as per guidelines.
     const text = response.text;
     if (!text) throw new Error("No response from AI");
     

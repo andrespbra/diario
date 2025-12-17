@@ -5,7 +5,7 @@ import {
   Zap, AlertCircle, Clock, ShieldAlert, ChevronRight, 
   MapPin, Monitor, CheckCircle2, Trophy, History, 
   X, User, Wrench, Hash, Copy, Check, Save, 
-  CreditCard, Activity, XCircle, Eye 
+  CreditCard, Activity, XCircle, Eye, Tag, FileText
 } from 'lucide-react';
 
 interface TigerTeamProps {
@@ -32,10 +32,19 @@ export const TigerTeam: React.FC<TigerTeamProps> = ({ tickets, onResolve }) => {
     }
   };
 
-  // Sync edit form with selected ticket
+  // Sync edit form with selected ticket and ensure all validation fields exist
   useEffect(() => {
     if (selectedTicket) {
-      setEditFormData({ ...selectedTicket });
+      setEditFormData({ 
+        ...selectedTicket,
+        testWithCard: selectedTicket.testWithCard || false,
+        sicWithdrawal: selectedTicket.sicWithdrawal || false,
+        sicDeposit: selectedTicket.sicDeposit || false,
+        sicSensors: selectedTicket.sicSensors || false,
+        sicSmartPower: selectedTicket.sicSmartPower || false,
+        clientWitnessName: selectedTicket.clientWitnessName || '',
+        clientWitnessId: selectedTicket.clientWitnessId || ''
+      });
     }
   }, [selectedTicket]);
 
@@ -52,13 +61,22 @@ TAGS: ${editFormData.tagVLDD ? '#VLDD#' : ''} ${editFormData.tagNLVDD ? '#NLVDD#
 DEFEITO RECLAMADO:
 ${editFormData.description}
 
-AÇÃO TÉCNICO:
+AÇÃO TÉCNICA TIGER:
 ${editFormData.analystAction}
 
 VALIDAÇÃO TÉCNICA:
-Troca de Peça: ${editFormData.partReplaced ? 'SIM' : 'NÃO'}
-${editFormData.partReplaced ? `Peça(s): ${editFormData.partDescription}` : ''}
+Troca de Peça: ${editFormData.partReplaced ? `SIM (${editFormData.partDescription})` : 'NÃO'}
 Teste com Cartão: ${editFormData.testWithCard ? 'REALIZADO' : 'NÃO REALIZADO'}
+
+VALIDAÇÃO SIC:
+[${editFormData.sicWithdrawal ? 'X' : ' '}] Saques
+[${editFormData.sicDeposit ? 'X' : ' '}] Depósitos
+[${editFormData.sicSensors ? 'X' : ' '}] Sensoriamento
+[${editFormData.sicSmartPower ? 'X' : ' '}] SmartPower
+
+RESPONSÁVEL LOCAL:
+Nome: ${editFormData.clientWitnessName || 'N/A'}
+Matrícula: ${editFormData.clientWitnessId || 'N/A'}
 
 SITUAÇÃO: ${editFormData.status.toUpperCase()}
 ------------------------------------------`;
@@ -117,7 +135,7 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
       {/* Detail Modal */}
       {selectedTicket && editFormData && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white sm:rounded-2xl rounded-t-2xl shadow-2xl w-full max-w-4xl h-[95vh] sm:h-auto sm:max-h-[90vh] flex flex-col transition-all overflow-hidden border border-amber-500/20">
+          <div className="bg-white sm:rounded-2xl rounded-t-2xl shadow-2xl w-full max-w-5xl h-[95vh] sm:h-auto sm:max-h-[90vh] flex flex-col transition-all overflow-hidden border border-amber-500/20">
             <div className="bg-slate-900 px-4 py-4 md:px-6 flex justify-between items-center shrink-0">
               <div className="flex items-center gap-3">
                 <div className="bg-amber-500 p-2 rounded-lg">
@@ -134,104 +152,203 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
             </div>
 
             <div className="p-4 md:p-6 overflow-y-auto space-y-6 bg-white flex-1">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Identificação */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Task</label>
-                  <p className="font-mono text-sm font-bold text-slate-900 px-3 py-2 bg-slate-50 rounded-lg">{editFormData.taskId}</p>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1"><Hash className="w-3 h-3" /> Task</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.taskId} 
+                    onChange={(e) => handleInputChange('taskId', e.target.value)}
+                    className="w-full font-mono text-sm font-bold text-slate-900 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none" 
+                  />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Host</label>
-                  <p className="font-mono text-sm font-bold text-slate-900 px-3 py-2 bg-slate-50 rounded-lg">{editFormData.hostname}</p>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1"><Tag className="w-3 h-3" /> INC (S.R.)</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.serviceRequest} 
+                    onChange={(e) => handleInputChange('serviceRequest', e.target.value)}
+                    className="w-full font-mono text-sm font-bold text-slate-900 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none" 
+                  />
                 </div>
-                <div className="col-span-2 space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Cliente / Local</label>
-                  <p className="text-sm font-bold text-slate-900 px-3 py-2 bg-slate-50 rounded-lg truncate">{editFormData.customerName} - {editFormData.locationName}</p>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1"><Monitor className="w-3 h-3" /> Hostname</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.hostname} 
+                    onChange={(e) => handleInputChange('hostname', e.target.value)}
+                    className="w-full font-mono text-sm font-bold text-slate-900 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none" 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">Tags Especiais</label>
+                  <div className="flex gap-2 h-[42px] items-center">
+                    <label className="flex items-center gap-1.5 cursor-pointer bg-slate-50 border border-slate-200 px-2 py-2 rounded-lg grow justify-center">
+                      <input type="checkbox" checked={editFormData.tagVLDD} onChange={(e) => handleInputChange('tagVLDD', e.target.checked)} className="w-4 h-4 text-purple-600 rounded" />
+                      <span className="text-[10px] font-bold text-purple-700">#VLDD#</span>
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer bg-slate-50 border border-slate-200 px-2 py-2 rounded-lg grow justify-center">
+                      <input type="checkbox" checked={editFormData.tagNLVDD} onChange={(e) => handleInputChange('tagNLVDD', e.target.checked)} className="w-4 h-4 text-purple-600 rounded" />
+                      <span className="text-[10px] font-bold text-purple-700">#NLVDD#</span>
+                    </label>
+                  </div>
                 </div>
               </div>
 
+              {/* Relatos */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-500" /> Relato Inicial
+                    <AlertCircle className="w-4 h-4 text-amber-500" /> Defeito / Relato Inicial
                   </label>
                   <textarea 
                     value={editFormData.description} 
                     onChange={(e) => handleInputChange('description', e.target.value)}
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm min-h-[100px] outline-none focus:ring-2 focus:ring-amber-500 transition-all"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm min-h-[100px] outline-none focus:ring-2 focus:ring-amber-500 transition-all resize-none"
                   />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-indigo-500" /> Ação Tiger Team
+                    <Activity className="w-4 h-4 text-indigo-500" /> Ação Técnica Tiger Team
                   </label>
                   <textarea 
                     value={editFormData.analystAction} 
                     onChange={(e) => handleInputChange('analystAction', e.target.value)}
                     placeholder="Quais ações de elite foram tomadas?"
-                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm min-h-[100px] outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm min-h-[100px] outline-none focus:ring-2 focus:ring-indigo-500 transition-all resize-none"
                   />
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
-                  <label className="text-xs font-bold text-slate-500 uppercase mb-3 block">Troca de Peça</label>
-                  <div className="flex gap-4 mb-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="radio" checked={editFormData.partReplaced} onChange={() => handleInputChange('partReplaced', true)} />
-                      <span className="text-sm">Sim</span>
+              {/* Validação Técnica & SIC */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="space-y-4">
+                  <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
+                    <label className="text-xs font-bold text-slate-500 uppercase mb-3 block flex items-center gap-2">
+                      <Wrench className="w-3 h-3" /> Troca de Peça
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="radio" checked={!editFormData.partReplaced} onChange={() => handleInputChange('partReplaced', false)} />
-                      <span className="text-sm">Não</span>
-                    </label>
+                    <div className="flex gap-4 mb-3">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="part_replaced_modal" checked={editFormData.partReplaced} onChange={() => handleInputChange('partReplaced', true)} />
+                        <span className="text-sm">Sim</span>
+                      </label>
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="part_replaced_modal" checked={!editFormData.partReplaced} onChange={() => handleInputChange('partReplaced', false)} />
+                        <span className="text-sm">Não</span>
+                      </label>
+                    </div>
+                    {editFormData.partReplaced && (
+                      <input 
+                        type="text" 
+                        value={editFormData.partDescription || ''} 
+                        onChange={(e) => handleInputChange('partDescription', e.target.value)}
+                        placeholder="Descrição da peça"
+                        className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-500"
+                      />
+                    )}
                   </div>
-                  {editFormData.partReplaced && (
-                    <input 
-                      type="text" 
-                      value={editFormData.partDescription || ''} 
-                      onChange={(e) => handleInputChange('partDescription', e.target.value)}
-                      placeholder="Descrição da peça"
-                      className="w-full px-3 py-1.5 text-xs bg-white border border-slate-200 rounded outline-none"
-                    />
-                  )}
+
+                  <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-center justify-between">
+                    <label className="text-xs font-bold text-blue-700 uppercase flex items-center gap-2">
+                      <CreditCard className="w-4 h-4" /> Teste Cartão?
+                    </label>
+                    <div className="flex gap-3">
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="radio" name="card_test_modal" checked={editFormData.testWithCard} onChange={() => handleInputChange('testWithCard', true)} />
+                        <span className="text-xs font-bold text-blue-900">SIM</span>
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer">
+                        <input type="radio" name="card_test_modal" checked={!editFormData.testWithCard} onChange={() => handleInputChange('testWithCard', false)} />
+                        <span className="text-xs font-bold text-blue-900">NÃO</span>
+                      </label>
+                    </div>
+                  </div>
                 </div>
 
-                <div className="bg-amber-50 p-4 rounded-xl border border-amber-100">
-                  <label className="text-xs font-bold text-amber-700 uppercase mb-3 block">Validadores</label>
-                  <div className="space-y-2">
+                <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                  <label className="text-xs font-bold text-indigo-700 uppercase mb-4 block flex items-center gap-2">
+                    <Activity className="w-4 h-4" /> Validação SIC
+                  </label>
+                  <div className="grid grid-cols-2 gap-y-3">
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={editFormData.testWithCard} onChange={(e) => handleInputChange('testWithCard', e.target.checked)} />
-                      <span className="text-sm font-medium">Teste com Cartão</span>
+                      <input type="checkbox" checked={editFormData.sicWithdrawal} onChange={(e) => handleInputChange('sicWithdrawal', e.target.checked)} className="w-4 h-4 text-indigo-600 rounded" />
+                      <span className="text-sm text-indigo-900">Saques</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
-                      <input type="checkbox" checked={editFormData.tagVLDD} onChange={(e) => handleInputChange('tagVLDD', e.target.checked)} />
-                      <span className="text-sm font-bold text-purple-700">#VLDD#</span>
+                      <input type="checkbox" checked={editFormData.sicDeposit} onChange={(e) => handleInputChange('sicDeposit', e.target.checked)} className="w-4 h-4 text-indigo-600 rounded" />
+                      <span className="text-sm text-indigo-900">Depósitos</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={editFormData.sicSensors} onChange={(e) => handleInputChange('sicSensors', e.target.checked)} className="w-4 h-4 text-indigo-600 rounded" />
+                      <span className="text-sm text-indigo-900">Sensoriamento</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="checkbox" checked={editFormData.sicSmartPower} onChange={(e) => handleInputChange('sicSmartPower', e.target.checked)} className="w-4 h-4 text-indigo-600 rounded" />
+                      <span className="text-sm text-indigo-900">SmartPower</span>
                     </label>
                   </div>
                 </div>
 
-                <div className="bg-slate-800 p-4 rounded-xl text-white">
-                  <div className="flex justify-between items-center mb-2">
-                    <label className="text-[10px] font-bold uppercase text-slate-400">Resumo da Missão</label>
-                    <button onClick={handleCopySummary} className="p-1 hover:bg-white/10 rounded">
-                      {copied ? <Check className="w-4 h-4 text-green-400" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  <div className="text-[10px] font-mono leading-relaxed line-clamp-4 text-slate-300 italic">
-                    {summaryText}
+                <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
+                  <label className="text-xs font-bold text-emerald-700 uppercase mb-4 block flex items-center gap-2">
+                    <User className="w-4 h-4" /> Responsável Local
+                  </label>
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-emerald-600 font-bold uppercase">Nome</span>
+                      <input 
+                        type="text" 
+                        value={editFormData.clientWitnessName || ''} 
+                        onChange={(e) => handleInputChange('clientWitnessName', e.target.value)}
+                        placeholder="Nome do acompanhante"
+                        className="w-full px-3 py-2 text-sm bg-white border border-emerald-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <span className="text-[10px] text-emerald-600 font-bold uppercase">Matrícula</span>
+                      <input 
+                        type="text" 
+                        value={editFormData.clientWitnessId || ''} 
+                        onChange={(e) => handleInputChange('clientWitnessId', e.target.value)}
+                        placeholder="ID / Matrícula"
+                        className="w-full px-3 py-2 text-sm bg-white border border-emerald-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
+
+              {/* Resumo */}
+              <div className="bg-slate-800 rounded-2xl p-4 md:p-6 text-white relative shadow-inner">
+                <div className="flex justify-between items-center mb-4">
+                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
+                    <FileText className="w-4 h-4" /> Resumo da Missão Tiger Team
+                  </label>
+                  <button 
+                    onClick={handleCopySummary} 
+                    className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${copied ? 'bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white border border-slate-600'}`}
+                  >
+                    {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                    {copied ? 'Copiado' : 'Copiar Resumo'}
+                  </button>
+                </div>
+                <textarea 
+                  readOnly 
+                  rows={8}
+                  value={summaryText} 
+                  className="w-full bg-slate-900/50 border border-slate-700 rounded-xl p-4 text-[11px] md:text-xs font-mono text-slate-300 outline-none resize-none leading-relaxed" 
+                />
+              </div>
             </div>
 
-            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end gap-3 pb-8 sm:pb-4">
-              <button onClick={() => setSelectedTicket(null)} className="px-5 py-2 text-sm font-bold text-slate-500 hover:text-slate-800">Fechar</button>
-              <button onClick={() => handleSave(false)} className="px-5 py-2 bg-slate-900 text-white rounded-lg text-sm font-bold shadow-lg flex items-center gap-2">
-                <Save className="w-4 h-4" /> Salvar Alterações
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap justify-end gap-3 pb-10 sm:pb-4">
+              <button onClick={() => setSelectedTicket(null)} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-800">Descartar Alterações</button>
+              <button onClick={() => handleSave(false)} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-lg flex items-center gap-2 hover:bg-slate-800 transition-colors">
+                <Save className="w-4 h-4" /> Salvar Andamento
               </button>
-              <button onClick={() => handleSave(true)} className="px-5 py-2 bg-amber-500 text-white rounded-lg text-sm font-bold shadow-lg shadow-amber-200 flex items-center gap-2">
-                <CheckCircle2 className="w-4 h-4" /> Finalizar Missão
+              <button onClick={() => handleSave(true)} className="px-8 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-200 flex items-center gap-2 hover:bg-amber-600 transition-colors">
+                <CheckCircle2 className="w-4 h-4" /> Finalizar e Validar Missão
               </button>
             </div>
           </div>
