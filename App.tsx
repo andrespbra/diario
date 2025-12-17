@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
@@ -96,7 +97,7 @@ const App: React.FC = () => {
         await DataManager.updateTicket(updatedTicket);
         const updatedTickets = await DataManager.getTickets();
         setTickets(updatedTickets);
-        const msg = updatedTicket.status === TicketStatus.CLOSED ? 'Chamado fechado.' : `Chamado TASK-${updatedTicket.taskId} validado.`;
+        const msg = updatedTicket.status === TicketStatus.CLOSED ? 'Chamado fechado.' : `Chamado TASK-${updatedTicket.taskId} atualizado.`;
         showNotification(msg);
     } catch (error) {
         console.error(error);
@@ -260,7 +261,7 @@ const App: React.FC = () => {
 
             {currentView === 'dashboard' && <Dashboard tickets={tickets} />}
             {currentView === 'new-ticket' && <NewTicketForm onSubmit={handleCreateTicket} currentUser={currentUser} />}
-            {currentView === 'tiger-team' && <TigerTeam tickets={tickets} />}
+            {currentView === 'tiger-team' && <TigerTeam tickets={tickets} onResolve={handleResolveTicket} />}
             {currentView === 'escalations' && <EscalationList tickets={tickets} onResolve={handleResolveTicket} />}
             {currentView === 'history' && (
                 <HistoryList 
