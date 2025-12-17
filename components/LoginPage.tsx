@@ -145,7 +145,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onDemoLogin }) => {
                             <p className="flex items-center gap-2 font-medium text-gray-300">
                                <Database className="w-3 h-3 text-indigo-400" /> Primeiro Acesso (Admin)
                             </p>
-                            <p>Execute o script <span className="font-mono text-indigo-300 bg-indigo-900/30 px-1 rounded">sql.txt</span> no Supabase.</p>
+                            <p>
+                                1. Crie as tabelas com <span className="font-mono text-indigo-300 bg-indigo-900/30 px-1 rounded">sql.txt</span>
+                            </p>
+                            <p>
+                                2. Crie o admin com <span className="font-mono text-indigo-300 bg-indigo-900/30 px-1 rounded">adm.txt</span>
+                            </p>
                             <div className="bg-black/30 p-2 rounded border border-gray-700 mt-2">
                                 <p className="font-mono text-gray-500 mb-1">Credenciais Padrão:</p>
                                 <p className="text-white font-mono">User: admin</p>

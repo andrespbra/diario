@@ -1,8 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { TicketPriority } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
 export interface AIAnalysisResult {
   suggestedSolution: string;
   recommendedPriority: TicketPriority;
@@ -19,6 +17,19 @@ export const analyzeTicketProblem = async (problemDescription: string): Promise<
   }
 
   try {
+    // Initialize inside the function to avoid top-level crashes if process.env is missing in browser
+    const apiKey = process.env.API_KEY;
+    if (!apiKey) {
+        console.warn("Gemini API Key missing");
+        return {
+            suggestedSolution: "Chave de API não configurada.",
+            recommendedPriority: TicketPriority.MEDIUM,
+            isEscalationRecommended: false
+        };
+    }
+
+    const ai = new GoogleGenAI({ apiKey });
+
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
       contents: `Analise a seguinte descrição de problema de suporte técnico: "${problemDescription}".

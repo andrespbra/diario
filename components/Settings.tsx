@@ -16,12 +16,20 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
     nivel: 'Analista' as UserLevel
   });
 
+  // Safe ID generator that works in HTTP (non-secure) contexts too
+  const generateId = () => {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+        return crypto.randomUUID();
+    }
+    return Math.random().toString(36).substring(2) + Date.now().toString(36);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUser.name || !newUser.username) return;
 
     const userProfile: UserProfile = {
-      id: crypto.randomUUID(), // Simulating Supabase UUID
+      id: generateId(),
       name: newUser.name,
       username: newUser.username,
       nivel: newUser.nivel

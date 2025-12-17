@@ -1,0 +1,70 @@
+-- SCRIPT PARA CRIAR USUÁRIO ADMIN (Supabase)
+-- Execute este script no SQL Editor do Supabase para criar o usuário 'admin'
+
+-- Garante que a extensão de criptografia esteja ativa
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+-- 1. Insere o usuário na tabela de autenticação (auth.users)
+-- Senha padrão: admin123
+-- Usuário: admin (será tratado como admin@helpdesk.com)
+
+WITH new_user AS (
+  INSERT INTO auth.users (
+    instance_id,
+    id,
+    aud,
+    role,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    raw_app_meta_data,
+    raw_user_meta_data,
+    created_at,
+    updated_at,
+    confirmation_token,
+    email_change,
+    email_change_token_new,
+    recovery_token
+  ) VALUES (
+    '00000000-0000-0000-0000-000000000000',
+    gen_random_uuid(),
+    'authenticated',
+    'authenticated',
+    'admin@helpdesk.com',
+    crypt('admin123', gen_salt('bf')),
+    now(),
+    '{"provider":"email","providers":["email"]}',
+    '{"name": "Administrador", "nivel": "Admin"}',
+    now(),
+    now(),
+    '',
+    '',
+    '',
+    ''
+  )
+  RETURNING id
+)
+-- 2. Insere a identidade (Necessário para login)
+INSERT INTO auth.identities (
+  id,
+  user_id,
+  identity_data,
+  provider,
+  provider_id,
+  last_sign_in_at,
+  created_at,
+  updated_at
+)
+SELECT
+  gen_random_uuid(),
+  id,
+  format('{"sub":"%s","email":"admin@helpdesk.com"}', id)::jsonb,
+  'email',
+  id::text, -- CORREÇÃO: provider_id é obrigatório (geralmente é o UUID do usuário para email)
+  now(),
+  now(),
+  now()
+FROM new_user;
+
+-- NOTA: O perfil na tabela 'public.user_profiles' será criado automaticamente 
+-- pelo Trigger definido no arquivo sql.txt
