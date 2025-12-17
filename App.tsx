@@ -306,8 +306,8 @@ const App: React.FC = () => {
           return;
       }
 
-      if (!password) {
-          showNotification("Erro: Senha é obrigatória.");
+      if (!password || password.length < 6) {
+          showNotification("Erro: A senha deve ter no mínimo 6 caracteres.");
           return;
       }
 
@@ -319,7 +319,7 @@ const App: React.FC = () => {
 
       try {
           // 1. Create User in Supabase Auth
-          // We still pass metadata for the trigger backup, but we will also manually insert below
+          // We add options.autoSignIn = false just to be extra safe with the temporary client
           const { data, error } = await tempClient.auth.signUp({
               email: email,
               password: password,
@@ -332,12 +332,8 @@ const App: React.FC = () => {
           });
 
           if (error) {
-              // If user already exists in Auth, we might still want to try creating the profile (in case it was deleted or trigger failed)
               if (error.message.includes("registered") || error.message.includes("exists")) {
-                   console.warn("User already exists in Auth, checking profile...");
-                   // Note: We can't get the ID of an existing user client-side without logging in as them or using Admin API.
-                   // So we just notify the user.
-                   showNotification("Erro: Este usuário/email já está registrado no sistema.");
+                   showNotification("Este usuário já possui cadastro.");
                    return;
               }
               throw error;
@@ -345,8 +341,6 @@ const App: React.FC = () => {
 
           if (data.user) {
               // 2. SAFETY NET: Manually insert into public.user_profiles using the ADMIN session (currentUser).
-              // This guarantees the user appears in the list even if the SQL Trigger fails or is delayed.
-              // Note: RLS must allow authenticated users to INSERT (as per sql.txt)
               const { error: profileError } = await supabase.from('user_profiles').upsert({
                   id: data.user.id,
                   name: newUserProfile.name,
@@ -358,14 +352,14 @@ const App: React.FC = () => {
                   console.warn("Manual profile creation failed (Trigger might handle it):", profileError);
               }
 
-              showNotification(`Usuário ${newUserProfile.username} criado com sucesso!`);
+              showNotification(`Usuário ${newUserProfile.name} cadastrado e liberado!`);
               
               // Immediate refresh
               setTimeout(fetchAllUsers, 500);
           }
       } catch (err: any) {
           console.error("Error creating user:", err);
-          showNotification(`Erro ao criar usuário: ${err.message}`);
+          showNotification(`Erro no cadastro: ${err.message}`);
       }
   };
 
@@ -378,17 +372,15 @@ const App: React.FC = () => {
 
      // Note: Client-side deletion from auth.users is NOT possible with anon key.
      // We can only delete from public.user_profiles if RLS allows it.
-     // However, the orphaned auth user will remain.
-     // For a real app, this requires a Supabase Edge Function (Admin API).
      
      // Deleting from profile at least removes access to the app logic (if we check profile existence on login)
      const { error } = await supabase.from('user_profiles').delete().eq('id', userId);
      
      if (error) {
-         showNotification("Erro: Não foi possível remover (Requer Edge Function/Backend).");
+         showNotification("Erro: Não foi possível remover (Requer backend).");
          console.error(error);
      } else {
-         showNotification("Perfil removido do sistema.");
+         showNotification("Perfil removido. O acesso foi revogado.");
          fetchAllUsers();
      }
   };
