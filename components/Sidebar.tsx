@@ -44,7 +44,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isMobile
           <div className="bg-indigo-500 p-2 rounded-lg">
             <Headphones className="w-6 h-6 text-white" />
           </div>
-          <span className="text-xl font-bold tracking-tight">HelpDesk<span className="text-indigo-400">AI</span></span>
+          <span className="text-xl font-bold tracking-tight">Diario de<span className="text-indigo-400">Bordo</span></span>
         </div>
 
         <nav className="p-4 space-y-2 mt-4">

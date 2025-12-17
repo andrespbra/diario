@@ -207,7 +207,7 @@ const App: React.FC = () => {
       <main className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
         {/* Mobile Header */}
         <header className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-20 sticky top-0">
-            <span className="font-bold text-gray-800 text-lg">HelpDesk AI</span>
+            <span className="font-bold text-gray-800 text-lg">Diario de Bordo</span>
             <button 
                 onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
                 className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg focus:ring-2 focus:ring-indigo-100"

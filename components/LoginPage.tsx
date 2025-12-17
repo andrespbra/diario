@@ -39,7 +39,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-indigo-600 mb-2 shadow-lg shadow-indigo-500/30">
                     <Headphones className="w-6 h-6 text-white" />
                 </div>
-                <h1 className="text-2xl font-bold text-white tracking-tight">HelpDesk AI Pro</h1>
+                <h1 className="text-2xl font-bold text-white tracking-tight">Diario de Bordo</h1>
                 <p className="text-gray-400 text-sm">
                     Acesso Seguro (Cloud Online)
                 </p>
@@ -99,20 +99,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                  <div className="mt-2 flex items-center justify-center gap-2 text-xs text-gray-500">
                      <Cloud className="w-3 h-3" /> Conectado ao Supabase
                  </div>
-                 
-                 {/* SQL Helper Hint 
-                 <div className="bg-black/30 p-2 rounded border border-gray-700 mt-2 text-center">
-                    <p className="font-mono text-gray-500 mb-1 text-[10px] uppercase">Credenciais Padrão (Após rodar SQL)</p>
-                    <p className="text-white font-mono text-xs">User: admin</p>
-                    <p className="text-white font-mono text-xs">Pass: 123456</p>
-                    
-                </div>
-                */}
              </div>
           </div>
           
           <div className="bg-[#111827] px-8 py-4 border-t border-gray-800 text-center">
-             <p className="text-gray-500 text-xs font-medium tracking-wide">© 2025 HelpDesk AI. Todos os direitos reservados.</p>
+             <p className="text-gray-500 text-xs font-medium tracking-wide">© 2025 Diario de Bordo. Todos os direitos reservados.</p>
           </div>
        </div>
     </div>
