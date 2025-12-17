@@ -363,12 +363,25 @@ const App: React.FC = () => {
           return;
       }
 
-      // IMPORTANTE: Criamos uma instância separada para não deslogar o admin atual.
-      const tempClient = createClient(supabaseUrl, supabaseAnonKey);
+      // CORREÇÃO: Criar cliente isolado para evitar conflito com sessão do admin logado
+      const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
+          auth: {
+              persistSession: false,
+              autoRefreshToken: false,
+              detectSessionInUrl: false
+          }
+      });
       
-      // Clean up username/email to prevent whitespace errors (e.g. "User " -> "User @helpdesk.com")
-      const usernameClean = newUserProfile.username.trim();
-      const email = usernameClean.includes('@') ? usernameClean : `${usernameClean}@helpdesk.com`;
+      // Limpeza robusta do username para gerar email
+      // Remove espaços, converte para minúsculas
+      const cleanInput = newUserProfile.username.trim().replace(/\s+/g, '').toLowerCase();
+      
+      let email = "";
+      if (cleanInput.includes('@')) {
+          email = cleanInput;
+      } else {
+          email = `${cleanInput}@helpdesk.com`;
+      }
 
       try {
           // 1. Tentar criar o usuário no Auth
@@ -379,34 +392,39 @@ const App: React.FC = () => {
                   data: {
                       name: newUserProfile.name,
                       nivel: newUserProfile.nivel,
-                      mustChangePassword: true // Novo usuário deve mudar senha
+                      mustChangePassword: true
                   }
               }
           });
 
           // Tratamento robusto de erros
           if (error) {
-              console.error("Auth Error:", error); // Log full error for debugging
+              console.error("Auth Error:", error); 
+              
               if (error.message.includes("registered") || error.message.includes("exists")) {
                   showNotification("Aviso: Email já cadastrado no sistema.");
                   return; 
               }
-              if (error.message.includes("invalid")) {
-                 showNotification(`Erro: Formato de email inválido (${email}).`);
+              if (error.message.includes("invalid") || error.message.includes("format")) {
+                 showNotification(`Erro: Formato de email inválido (${email}). Tente outro login.`);
                  return;
               }
-              // Show database errors nicely
-              if (error.message.includes("Database error")) {
-                  showNotification("Erro no banco de dados. Verifique se a coluna must_change_password existe.");
+              if (error.message.includes("Password")) {
+                  showNotification(`Erro na senha: ${error.message}`);
                   return;
               }
+              if (error.message.includes("Database")) {
+                  showNotification("Erro no banco de dados. Verifique logs.");
+                  return;
+              }
+              
               throw error;
           }
 
           // 2. Auth criado com sucesso 
           if (data.user) {
               if (!data.session) {
-                  showNotification("Usuário criado! (Confirmação de email pode ser necessária).");
+                  showNotification("Usuário criado com sucesso!");
               } else {
                   showNotification("Usuário cadastrado com sucesso!");
               }
