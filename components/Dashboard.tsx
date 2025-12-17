@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { Ticket, TicketPriority, TicketStatus } from '../types';
 import { StatsCard } from './StatsCard';
-import { BarChart3, CheckCircle2, Clock, AlertOctagon } from 'lucide-react';
+import { BarChart3, CheckCircle2, Clock, AlertOctagon, Zap } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
 interface DashboardProps {
@@ -10,7 +11,8 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ tickets }) => {
   const totalTickets = tickets.length;
-  const escalatedTickets = tickets.filter(t => t.isEscalated).length;
+  const escalatedTickets = tickets.filter(t => t.isEscalated && t.status !== TicketStatus.CLOSED && t.status !== TicketStatus.RESOLVED).length;
+  const tigerTeamTickets = tickets.filter(t => t.isTigerTeam && t.status !== TicketStatus.CLOSED && t.status !== TicketStatus.RESOLVED).length;
   const resolvedTickets = tickets.filter(t => t.status === TicketStatus.RESOLVED || t.status === TicketStatus.CLOSED).length;
   const openTickets = tickets.filter(t => t.status === TicketStatus.OPEN).length;
 
@@ -28,7 +30,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ tickets }) => {
         <p className="text-xs md:text-sm text-gray-500">Atualizado agora</p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-4">
         <StatsCard 
           title="Total" 
           value={totalTickets} 
@@ -39,8 +41,15 @@ export const Dashboard: React.FC<DashboardProps> = ({ tickets }) => {
           title="Escalonados" 
           value={escalatedTickets} 
           icon={AlertOctagon} 
-          trend={escalatedTickets > 0 ? "Atenção" : "Normal"}
+          trend={escalatedTickets > 0 ? "Em aberto" : "Normal"}
           colorClass="bg-red-500" 
+        />
+        <StatsCard 
+          title="Tiger Team" 
+          value={tigerTeamTickets} 
+          icon={Zap} 
+          trend={tigerTeamTickets > 0 ? "Crítico" : "Limpo"}
+          colorClass="bg-amber-500" 
         />
         <StatsCard 
           title="Resolvidos" 
@@ -84,9 +93,12 @@ export const Dashboard: React.FC<DashboardProps> = ({ tickets }) => {
           <div className="space-y-4">
             {tickets.slice(0, 5).map(ticket => (
               <div key={ticket.id} className="flex items-start gap-3 pb-3 border-b border-gray-50 last:border-0 last:pb-0">
-                <div className={`w-2 h-2 mt-2 rounded-full shrink-0 ${ticket.isEscalated ? 'bg-red-500' : 'bg-green-500'}`} />
+                <div className={`w-2 h-2 mt-2 rounded-full shrink-0 ${ticket.isTigerTeam ? 'bg-amber-500 animate-pulse' : (ticket.isEscalated ? 'bg-red-500' : 'bg-green-500')}`} />
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{ticket.customerName}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-sm font-medium text-gray-900 truncate">{ticket.customerName}</p>
+                    {ticket.isTigerTeam && <Zap className="w-3 h-3 text-amber-500" />}
+                  </div>
                   <p className="text-xs text-gray-500 truncate">{ticket.locationName} • {ticket.taskId}</p>
                   <span className="text-[10px] text-gray-400">
                     {ticket.createdAt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}

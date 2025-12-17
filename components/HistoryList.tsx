@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { Ticket, TicketStatus, TicketPriority } from '../types';
-import { Search, MapPin, Clock, AlertTriangle, AlertOctagon, Wrench, CheckCircle2, XCircle, ArrowUpRight, Copy, Check, Trash2 } from 'lucide-react';
+import { Search, MapPin, Clock, AlertTriangle, AlertOctagon, Wrench, CheckCircle2, XCircle, ArrowUpRight, Copy, Check, Trash2, Zap } from 'lucide-react';
 
 interface HistoryListProps {
   tickets: Ticket[];
@@ -25,7 +26,16 @@ export const HistoryList: React.FC<HistoryListProps> = ({ tickets, onDelete, onU
     return matchesSearch && matchesStatus;
   }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-  const getStatusBadge = (status: TicketStatus, isEscalated: boolean) => {
+  const getStatusBadge = (status: TicketStatus, isEscalated: boolean, isTigerTeam: boolean) => {
+      if (isTigerTeam) {
+        return (
+          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200" title="Atendimento Tiger Team #198">
+              <Zap className="w-3 h-3 mr-1 animate-pulse" />
+              Tiger Team
+          </span>
+        );
+      }
+
       if (isEscalated && status !== TicketStatus.RESOLVED && status !== TicketStatus.CLOSED) {
           return (
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200" title="Este chamado foi escalonado">
@@ -146,8 +156,8 @@ ${ticket.analystAction}`;
                              <tr key={ticket.id} className="hover:bg-gray-50 transition-colors group">
                                  <td className="px-6 py-4 align-top">
                                      <div className="flex flex-col gap-2 items-start">
-                                         {getStatusBadge(ticket.status, ticket.isEscalated)}
-                                         {ticket.priority === TicketPriority.CRITICAL && !ticket.isEscalated && (
+                                         {getStatusBadge(ticket.status, ticket.isEscalated, ticket.isTigerTeam)}
+                                         {ticket.priority === TicketPriority.CRITICAL && !ticket.isEscalated && !ticket.isTigerTeam && (
                                             <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100" title="Prioridade Crítica">CRÍTICO</span>
                                          )}
                                      </div>
