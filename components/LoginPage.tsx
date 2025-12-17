@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { User, Lock, ArrowRight, Headphones, Loader2, AlertCircle, Database } from 'lucide-react';
+import { User, Lock, ArrowRight, Headphones, Loader2, AlertCircle, Cloud } from 'lucide-react';
 import { DataManager } from '../services/dataManager';
 import { UserProfile } from '../types';
 
@@ -41,7 +41,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </div>
                 <h1 className="text-2xl font-bold text-white tracking-tight">HelpDesk AI Pro</h1>
                 <p className="text-gray-400 text-sm">
-                    Entre com seu usuário e senha.
+                    Acesso Seguro (Cloud Online)
                 </p>
              </div>
 
@@ -94,17 +94,10 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </button>
              </form>
              
-             {/* Local DB Hint */}
+             {/* Cloud Hint */}
              <div className="pt-2 border-t border-gray-800/50">
-                 <div className="mt-2 bg-gray-800/50 rounded-lg p-3 text-xs text-gray-400 space-y-2">
-                    <p className="flex items-center gap-2 font-medium text-gray-300">
-                       <Database className="w-3 h-3 text-indigo-400" /> Banco de Dados Local
-                    </p>
-                    <div className="bg-black/30 p-2 rounded border border-gray-700 mt-2">
-                        <p className="font-mono text-gray-500 mb-1">Credenciais Padrão:</p>
-                        <p className="text-white font-mono">User: admin</p>
-                        <p className="text-white font-mono">Pass: admin123</p>
-                    </div>
+                 <div className="mt-2 flex items-center justify-center gap-2 text-xs text-gray-500">
+                     <Cloud className="w-3 h-3" /> Conectado ao Supabase
                  </div>
              </div>
           </div>

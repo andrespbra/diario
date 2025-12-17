@@ -22,9 +22,9 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const generateId = () => {
-    return Math.random().toString(36).substring(2) + Date.now().toString(36);
-  };
+  // We don't generate IDs locally anymore, Supabase handles it.
+  // But we need a placeholder for the object structure before sending.
+  const generatePlaceholderId = () => 'new'; 
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,7 +33,7 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
     setIsSubmitting(true);
 
     const userProfile: UserProfile = {
-      id: generateId(),
+      id: generatePlaceholderId(),
       name: newUser.name,
       username: newUser.username.trim(), 
       nivel: newUser.nivel,
@@ -62,7 +62,7 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
              <Shield className="w-6 h-6 text-indigo-600" />
              Gestão de Acessos
            </h1>
-           <p className="text-sm text-gray-500">Controle de usuários e permissões locais.</p>
+           <p className="text-sm text-gray-500">Controle de usuários no banco de dados online.</p>
         </div>
         
         <div className="flex gap-3">
@@ -173,7 +173,7 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
              </table>
           </div>
           <div className="bg-white border-t border-gray-200 p-3 text-xs text-gray-400 flex justify-end">
-              Database Local • {filteredUsers.length} Users
+              Database Online (Supabase) • {filteredUsers.length} Users
           </div>
       </div>
 

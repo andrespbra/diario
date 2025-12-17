@@ -8,8 +8,9 @@ import { LoginPage } from './components/LoginPage';
 import { Settings } from './components/Settings';
 import { ChangePassword } from './components/ChangePassword';
 import { Ticket, ViewState, UserProfile, TicketStatus } from './types';
-import { Menu, X, Loader2, AlertTriangle } from 'lucide-react';
+import { Menu, X, Loader2, Cloud, AlertTriangle } from 'lucide-react';
 import { DataManager } from './services/dataManager';
+import { isSupabaseConfigured } from './lib/supabaseClient';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -19,37 +20,51 @@ const App: React.FC = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // 1. Handle Authentication Session
   useEffect(() => {
     const checkSession = async () => {
-      const user = DataManager.getSession();
-      if (user) {
-          setCurrentUser(user);
-          loadTickets();
-          if (user.nivel === 'Admin') loadUsers();
+      try {
+        if (!isSupabaseConfigured) {
+            setSessionLoading(false);
+            return;
+        }
+
+        const user = await DataManager.getSession();
+        if (user) {
+            setCurrentUser(user);
+            // Load initial data
+            fetchData(user);
+        }
+      } catch (err) {
+        console.error("Session check failed", err);
+      } finally {
+        setSessionLoading(false);
       }
-      setSessionLoading(false);
     };
 
     checkSession();
   }, []);
 
-  const loadTickets = () => {
-      const data = DataManager.getTickets();
-      setTickets(data);
-  };
-
-  const loadUsers = () => {
-      const data = DataManager.getUsers();
-      setUsers(data);
+  const fetchData = async (user: UserProfile) => {
+      try {
+        const ticketData = await DataManager.getTickets();
+        setTickets(ticketData);
+        
+        if (user.nivel === 'Admin') {
+            const userData = await DataManager.getUsers();
+            setUsers(userData);
+        }
+      } catch (e) {
+          console.error("Error fetching data", e);
+      }
   };
 
   // Called by LoginPage
   const handleLoginSuccess = (user: UserProfile) => {
       setCurrentUser(user);
-      loadTickets();
-      if (user.nivel === 'Admin') loadUsers();
+      fetchData(user);
   };
 
   const handleLogout = async () => {
@@ -64,7 +79,8 @@ const App: React.FC = () => {
     
     try {
         await DataManager.addTicket(ticket);
-        loadTickets();
+        const updatedTickets = await DataManager.getTickets();
+        setTickets(updatedTickets);
         showNotification("Chamado registrado com sucesso!");
         setCurrentView('dashboard');
     } catch (error) {
@@ -77,7 +93,8 @@ const App: React.FC = () => {
   const handleResolveTicket = async (updatedTicket: Ticket) => {
     try {
         await DataManager.updateTicket(updatedTicket);
-        loadTickets();
+        const updatedTickets = await DataManager.getTickets();
+        setTickets(updatedTickets);
         const msg = updatedTicket.status === TicketStatus.CLOSED ? 'Chamado fechado.' : `Chamado TASK-${updatedTicket.taskId} validado.`;
         showNotification(msg);
     } catch (error) {
@@ -110,7 +127,9 @@ const App: React.FC = () => {
       try {
           await DataManager.addUser(newUserProfile, password);
           showNotification(`Usuário "${newUserProfile.username}" criado com sucesso!`);
-          loadUsers();
+          
+          const updatedUsers = await DataManager.getUsers();
+          setUsers(updatedUsers);
       } catch (err: any) {
           console.error("Error creating user:", err);
           showNotification(`Erro no cadastro: ${err.message}`);
@@ -121,7 +140,8 @@ const App: React.FC = () => {
      try {
          await DataManager.deleteUser(userId);
          showNotification("Usuário removido.");
-         loadUsers();
+         const updatedUsers = await DataManager.getUsers();
+         setUsers(updatedUsers);
      } catch (error) {
          showNotification("Erro ao remover usuário.");
      }
@@ -186,11 +206,18 @@ const App: React.FC = () => {
 
         {/* Top Bar with User Info - Desktop only */}
         <div className="hidden md:flex justify-end items-center px-8 py-3 bg-white border-b border-gray-100 gap-4">
-             {/* Config Warning */}
-             <div className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded font-bold flex items-center gap-1">
-                 <AlertTriangle className="w-3 h-3" />
-                 Banco Local (LocalStorage)
-             </div>
+             {/* Config Info */}
+             {isSupabaseConfigured ? (
+                 <div className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded font-bold flex items-center gap-1 border border-blue-100">
+                     <Cloud className="w-3 h-3" />
+                     Online (Supabase)
+                 </div>
+             ) : (
+                 <div className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded font-bold flex items-center gap-1">
+                     <AlertTriangle className="w-3 h-3" />
+                     Desconectado
+                 </div>
+             )}
              
              <div className="text-right">
                 <p className="text-sm font-bold text-gray-800">{currentUser.name}</p>
