@@ -31,12 +31,13 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
           return rawInput;
       }
 
-      // Aggressive cleaning for generated emails: Only a-z and 0-9
+      // Allow a-z, 0-9 and dots. Remove consecutive dots.
       const clean = rawInput
           .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9]/g, "");
+          .replace(/[^a-z0-9.]/g, "")
+          .replace(/\.+/g, ".");
       
-      return `${clean}@sistema.local`;
+      return `${clean}@example.com`;
   };
 
   const generateId = () => {

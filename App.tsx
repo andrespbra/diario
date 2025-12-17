@@ -376,18 +376,17 @@ const App: React.FC = () => {
       let email = "";
 
       if (rawInput.includes('@')) {
-         // Se o usuário digitou um email completo, usamos ele, mas limpamos caracteres inválidos
-         // Mas se ele digitar andre@helpdesk.com e o supabase recusar, vamos sugerir usar outro
+         // Se o usuário digitou um email completo, usamos ele
          email = rawInput;
       } else {
-         // Se ele digitou apenas "andre", limpamos AGRESSIVAMENTE
-         // Apenas letras e numeros. Sem pontos. Sem traços.
+         // Limpeza: Permite letras, números e pontos (mas remove pontos seguidos)
          const cleanInput = rawInput
             .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos
-            .replace(/[^a-z0-9]/g, ""); // Remove TUDO que não for letra ou numero
+            .replace(/[^a-z0-9.]/g, "") // Mantém a-z, 0-9 e ponto
+            .replace(/\.+/g, "."); // Remove pontos consecutivos
          
-         // Usamos um domínio fictício seguro (.local) para evitar validações de DNS externas do Supabase
-         email = `${cleanInput}@sistema.local`;
+         // @example.com é um domínio reservado pela IANA para documentação e é garantidamente válido
+         email = `${cleanInput}@example.com`;
       }
 
       try {
@@ -414,7 +413,7 @@ const App: React.FC = () => {
               }
               // Display raw error for better debugging of "invalid format" issues
               if (error.message.includes("invalid") || error.message.includes("format")) {
-                 showNotification(`Erro Supabase: ${error.message} (${email})`);
+                 showNotification(`Erro Supabase: ${error.message}. Tente digitar um email real completo.`);
                  return;
               }
               if (error.message.includes("Password")) {
@@ -429,7 +428,7 @@ const App: React.FC = () => {
 
           // 2. Auth criado com sucesso 
           if (data.user) {
-              const displayEmail = email.includes("@sistema.local") ? email.split('@')[0] : email;
+              const displayEmail = email.includes("@example.com") ? email.split('@')[0] : email;
               showNotification(`Usuário "${displayEmail}" criado com sucesso!`);
               
               // Pequeno delay para garantir que o banco processou a trigger
