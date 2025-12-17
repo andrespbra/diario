@@ -22,16 +22,21 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Helper to preview email
+  // Helper to preview email (Must match App.tsx logic)
   const getPreviewEmail = (username: string) => {
-      const clean = username
-          .trim()
+      const rawInput = username.trim().toLowerCase();
+      if (!rawInput) return '...';
+
+      if (rawInput.includes('@')) {
+          return rawInput;
+      }
+
+      // Aggressive cleaning for generated emails: Only a-z and 0-9
+      const clean = rawInput
           .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-zA-Z0-9@._-]/g, "")
-          .toLowerCase();
+          .replace(/[^a-z0-9]/g, "");
       
-      if (!clean) return '...';
-      return clean.includes('@') ? clean : `${clean}@helpdesk.com`;
+      return `${clean}@sistema.local`;
   };
 
   const generateId = () => {
@@ -254,7 +259,7 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-gray-600 uppercase tracking-wide">Login / Email</label>
+                                <label className="text-xs font-bold text-gray-600 uppercase tracking-wide">Login / Usuário</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                         <Mail className="h-4 w-4 text-gray-400" />
@@ -265,13 +270,13 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                                         value={newUser.username}
                                         onChange={(e) => setNewUser({...newUser, username: e.target.value})}
                                         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-                                        placeholder="usuario.login"
+                                        placeholder="Ex: ana.souza (sem espaços)"
                                     />
                                 </div>
                                 <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2 flex items-start gap-2 mt-2">
                                     <Mail className="w-3 h-3 text-indigo-500 mt-0.5 shrink-0" />
                                     <p className="text-[10px] text-indigo-700">
-                                        Email a ser gerado: <span className="font-bold">{getPreviewEmail(newUser.username)}</span>
+                                        Login interno: <span className="font-bold">{getPreviewEmail(newUser.username)}</span>
                                     </p>
                                 </div>
                             </div>

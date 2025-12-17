@@ -372,19 +372,22 @@ const App: React.FC = () => {
           }
       });
       
-      // Limpeza robusta do username para gerar email
-      // Remove espaços, converte para minúsculas, remove acentos
-      const cleanInput = newUserProfile.username
-          .trim()
-          .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove accents
-          .replace(/[^a-zA-Z0-9@._-]/g, "") // Remove non-standard chars
-          .toLowerCase();
-      
+      const rawInput = newUserProfile.username.trim().toLowerCase();
       let email = "";
-      if (cleanInput.includes('@')) {
-          email = cleanInput;
+
+      if (rawInput.includes('@')) {
+         // Se o usuário digitou um email completo, usamos ele, mas limpamos caracteres inválidos
+         // Mas se ele digitar andre@helpdesk.com e o supabase recusar, vamos sugerir usar outro
+         email = rawInput;
       } else {
-          email = `${cleanInput}@helpdesk.com`;
+         // Se ele digitou apenas "andre", limpamos AGRESSIVAMENTE
+         // Apenas letras e numeros. Sem pontos. Sem traços.
+         const cleanInput = rawInput
+            .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos
+            .replace(/[^a-z0-9]/g, ""); // Remove TUDO que não for letra ou numero
+         
+         // Usamos um domínio fictício seguro (.local) para evitar validações de DNS externas do Supabase
+         email = `${cleanInput}@sistema.local`;
       }
 
       try {
@@ -406,7 +409,7 @@ const App: React.FC = () => {
               console.error("Auth Error:", error); 
               
               if (error.message.includes("registered") || error.message.includes("exists")) {
-                  showNotification("Aviso: Email já cadastrado no sistema.");
+                  showNotification("Aviso: Usuário já cadastrado.");
                   return; 
               }
               // Display raw error for better debugging of "invalid format" issues
@@ -418,10 +421,6 @@ const App: React.FC = () => {
                   showNotification(`Erro na senha: ${error.message}`);
                   return;
               }
-              if (error.message.includes("Database")) {
-                  showNotification("Erro no banco de dados. Verifique logs ou contate suporte.");
-                  return;
-              }
               
               // Fallback for other errors
               showNotification(`Erro: ${error.message}`);
@@ -430,11 +429,8 @@ const App: React.FC = () => {
 
           // 2. Auth criado com sucesso 
           if (data.user) {
-              if (!data.session) {
-                  showNotification("Usuário criado com sucesso!");
-              } else {
-                  showNotification("Usuário cadastrado com sucesso!");
-              }
+              const displayEmail = email.includes("@sistema.local") ? email.split('@')[0] : email;
+              showNotification(`Usuário "${displayEmail}" criado com sucesso!`);
               
               // Pequeno delay para garantir que o banco processou a trigger
               setTimeout(fetchAllUsers, 1000);
