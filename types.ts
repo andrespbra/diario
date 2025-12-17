@@ -76,6 +76,7 @@ export interface Ticket {
   status: TicketStatus;
   priority: TicketPriority;
   isEscalated: boolean;
+  isTigerTeam: boolean; // Flag for #198 Tiger Team
   createdAt: Date;
 }
 

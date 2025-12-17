@@ -228,6 +228,7 @@ export const DataManager = {
         status: t.status,
         priority: t.priority,
         isEscalated: t.is_escalated,
+        isTigerTeam: t.is_tiger_team || false,
         createdAt: new Date(t.created_at),
     }));
   },
@@ -260,6 +261,7 @@ export const DataManager = {
         status: ticket.status,
         priority: ticket.priority,
         is_escalated: ticket.isEscalated,
+        is_tiger_team: ticket.isTigerTeam,
         ai_suggested_solution: ticket.aiSuggestedSolution
       };
 
@@ -287,6 +289,7 @@ export const DataManager = {
         client_witness_name: updatedTicket.clientWitnessName,
         client_witness_id: updatedTicket.clientWitnessId,
         status: updatedTicket.status,
+        is_tiger_team: updatedTicket.isTigerTeam,
         validated_at: new Date().toISOString(),
         // validated_by logic should handle grabbing current user name if needed, usually passed in updatedTicket or handled by RLS/Trigger
       };

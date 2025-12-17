@@ -7,9 +7,9 @@ interface TigerTeamProps {
 }
 
 export const TigerTeam: React.FC<TigerTeamProps> = ({ tickets }) => {
-  // Tiger Team focuses on CRITICAL tickets or those flagged as escalated
+  // Tiger Team focuses on explicit TIGER TEAM tickets or CRITICAL/ESCALATED ones
   const tigerTickets = tickets.filter(t => 
-    (t.priority === TicketPriority.CRITICAL || t.isEscalated) && 
+    (t.isTigerTeam || t.priority === TicketPriority.CRITICAL || t.isEscalated) && 
     t.status !== TicketStatus.CLOSED && 
     t.status !== TicketStatus.RESOLVED
   );
@@ -79,8 +79,8 @@ export const TigerTeam: React.FC<TigerTeamProps> = ({ tickets }) => {
                                 <span className="text-xs font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded uppercase">
                                     {ticket.taskId}
                                 </span>
-                                <span className="text-xs font-bold text-red-600 animate-pulse">
-                                    [ PRIORIDADE MÁXIMA ]
+                                <span className={`text-xs font-bold ${ticket.isTigerTeam ? 'text-amber-600' : 'text-red-600'} animate-pulse`}>
+                                    [ {ticket.isTigerTeam ? 'TIGER TEAM #198' : 'PRIORIDADE MÁXIMA'} ]
                                 </span>
                                 <span className="ml-auto md:ml-0 flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
                                     <Clock className="w-3 h-3" /> {formatTimeOpen(ticket.createdAt)} OPEN

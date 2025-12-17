@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TicketPriority, TicketStatus, Ticket, UserProfile } from '../types';
 import { analyzeTicketProblem } from '../services/geminiService';
-import { Sparkles, Save, Loader2, User, FileText, MapPin, Hash, Monitor, Clock, Tag, Briefcase, Wrench, CheckSquare, Copy, Check, Users, AlertOctagon } from 'lucide-react';
+import { Sparkles, Save, Loader2, User, FileText, MapPin, Hash, Monitor, Clock, Tag, Briefcase, Wrench, CheckSquare, Copy, Check, Users, AlertOctagon, Zap } from 'lucide-react';
 
 interface NewTicketFormProps {
   onSubmit: (ticket: Ticket) => void;
@@ -44,7 +44,8 @@ export const NewTicketForm: React.FC<NewTicketFormProps> = ({ onSubmit, currentU
     tagNLVDD: false,
     clientWitnessName: '',
     clientWitnessId: '',
-    isEscalated: false
+    isEscalated: false,
+    isTigerTeam: false
   });
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
@@ -65,6 +66,7 @@ CLIENTE/LOCAL: ${formData.locationName} | CONTATO: ${formData.customerName}
 HOSTNAME: ${formData.hostname}
 TASK: ${formData.taskId} | INC: ${formData.serviceRequest}
 ASSUNTO: ${formData.subject}
+TIGER TEAM: ${formData.isTigerTeam ? 'SIM (#198)' : 'NÃO'}
 STATUS: ${formData.isEscalated ? 'ESCALONADO (CRÍTICO)' : 'NORMAL'}
 
 ACOMPANHAMENTO:
@@ -113,17 +115,18 @@ Final:  ${end}
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Determine final escalation status: Manual override takes precedence over AI, or combined
-    // If user checks "Escalated", it is critical.
-    const isEscalatedFinal = formData.isEscalated || (aiSuggestion ? aiSuggestion.escalated : false);
+    // Logic: If it is Tiger Team, it is automatically Escalated and Critical
+    const isEscalatedFinal = formData.isTigerTeam || formData.isEscalated || (aiSuggestion ? aiSuggestion.escalated : false);
+    const priorityFinal = formData.isTigerTeam ? TicketPriority.CRITICAL : (isEscalatedFinal ? TicketPriority.CRITICAL : (aiSuggestion ? aiSuggestion.priority : TicketPriority.MEDIUM));
     
     const newTicket: Ticket = {
       id: Math.random().toString(36).substr(2, 9),
       userId: currentUser.id, // Link ticket to the logged-in user
       ...formData,
       status: formData.supportEndTime ? TicketStatus.RESOLVED : TicketStatus.OPEN, // Auto-resolve if end time provided
-      priority: isEscalatedFinal ? TicketPriority.CRITICAL : (aiSuggestion ? aiSuggestion.priority : TicketPriority.MEDIUM),
+      priority: priorityFinal,
       isEscalated: isEscalatedFinal,
+      isTigerTeam: formData.isTigerTeam,
       aiSuggestedSolution: aiSuggestion?.solution,
       createdAt: new Date(),
     };
@@ -146,7 +149,8 @@ Final:  ${end}
       tagNLVDD: false,
       clientWitnessName: '',
       clientWitnessId: '',
-      isEscalated: false
+      isEscalated: false,
+      isTigerTeam: false
     }));
     setAiSuggestion(null);
   };
@@ -328,20 +332,36 @@ Final:  ${end}
                 </select>
              </div>
 
-             {/* Escalation Toggle */}
+             {/* TIGER TEAM & Escalation Toggles */}
              <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                  <AlertOctagon className="w-4 h-4 text-red-500" /> Escalonamento
+                  <Zap className="w-4 h-4 text-amber-500" /> Nível Crítico
                 </label>
-                <div 
-                    onClick={() => handleChange('isEscalated', !formData.isEscalated)}
-                    className={`cursor-pointer w-full px-4 py-2 rounded-lg border flex items-center justify-between transition-colors ${formData.isEscalated ? 'bg-red-50 border-red-300' : 'bg-white border-gray-200 hover:border-gray-300'}`}
-                >
-                    <span className={`text-sm font-medium ${formData.isEscalated ? 'text-red-700' : 'text-gray-500'}`}>
-                        {formData.isEscalated ? 'Atendimento Escalonado' : 'Não Escalonado'}
-                    </span>
-                    <div className={`w-10 h-6 rounded-full p-1 transition-colors ${formData.isEscalated ? 'bg-red-500' : 'bg-gray-200'}`}>
-                        <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${formData.isEscalated ? 'translate-x-4' : 'translate-x-0'}`} />
+                <div className="flex flex-col gap-2">
+                    {/* #198 TIGER TEAM Toggle */}
+                    <div 
+                        onClick={() => handleChange('isTigerTeam', !formData.isTigerTeam)}
+                        className={`cursor-pointer w-full px-3 py-2 rounded-lg border flex items-center justify-between transition-colors ${formData.isTigerTeam ? 'bg-amber-50 border-amber-300 ring-1 ring-amber-200' : 'bg-white border-gray-200 hover:border-gray-300'}`}
+                    >
+                        <span className={`text-xs font-bold flex items-center gap-1 ${formData.isTigerTeam ? 'text-amber-700' : 'text-gray-400'}`}>
+                            <Zap className="w-3 h-3" /> #198 TIGER TEAM
+                        </span>
+                        <div className={`w-8 h-5 rounded-full p-0.5 transition-colors ${formData.isTigerTeam ? 'bg-amber-500' : 'bg-gray-200'}`}>
+                            <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${formData.isTigerTeam ? 'translate-x-3' : 'translate-x-0'}`} />
+                        </div>
+                    </div>
+
+                    {/* Standard Escalation Toggle */}
+                    <div 
+                        onClick={() => handleChange('isEscalated', !formData.isEscalated)}
+                        className={`cursor-pointer w-full px-3 py-2 rounded-lg border flex items-center justify-between transition-colors ${formData.isEscalated ? 'bg-red-50 border-red-300' : 'bg-white border-gray-200 hover:border-gray-300'}`}
+                    >
+                        <span className={`text-xs font-bold flex items-center gap-1 ${formData.isEscalated ? 'text-red-700' : 'text-gray-400'}`}>
+                            <AlertOctagon className="w-3 h-3" /> ESCALONAR
+                        </span>
+                        <div className={`w-8 h-5 rounded-full p-0.5 transition-colors ${formData.isEscalated ? 'bg-red-500' : 'bg-gray-200'}`}>
+                            <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${formData.isEscalated ? 'translate-x-3' : 'translate-x-0'}`} />
+                        </div>
                     </div>
                 </div>
              </div>
