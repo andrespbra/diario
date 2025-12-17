@@ -331,7 +331,17 @@ const App: React.FC = () => {
               }
           });
 
-          if (error) throw error;
+          if (error) {
+              // If user already exists in Auth, we might still want to try creating the profile (in case it was deleted or trigger failed)
+              if (error.message.includes("registered") || error.message.includes("exists")) {
+                   console.warn("User already exists in Auth, checking profile...");
+                   // Note: We can't get the ID of an existing user client-side without logging in as them or using Admin API.
+                   // So we just notify the user.
+                   showNotification("Erro: Este usuário/email já está registrado no sistema.");
+                   return;
+              }
+              throw error;
+          }
 
           if (data.user) {
               // 2. SAFETY NET: Manually insert into public.user_profiles using the ADMIN session (currentUser).
@@ -351,7 +361,7 @@ const App: React.FC = () => {
               showNotification(`Usuário ${newUserProfile.username} criado com sucesso!`);
               
               // Immediate refresh
-              await fetchAllUsers();
+              setTimeout(fetchAllUsers, 500);
           }
       } catch (err: any) {
           console.error("Error creating user:", err);

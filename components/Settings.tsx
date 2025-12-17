@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile, UserLevel } from '../types';
-import { UserPlus, Shield, User, Trash2, Save, Lock, Info, Loader2 } from 'lucide-react';
+import { UserPlus, Shield, User, Trash2, Save, Lock, Info, Loader2, CheckCircle } from 'lucide-react';
 
 interface SettingsProps {
   users: UserProfile[];
@@ -81,7 +81,7 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                     />
                  </div>
                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-gray-700">Usuário</label>
+                    <label className="text-sm font-medium text-gray-700">Usuário (Login)</label>
                     <input 
                       required
                       type="text" 
@@ -115,9 +115,10 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                        <option value="Analista">Analista</option>
                        <option value="Admin">Administrador</option>
                     </select>
-                    <div className="flex items-start gap-2 mt-1 text-xs text-blue-600 bg-blue-50 p-2 rounded">
-                        <Info className="w-4 h-4 shrink-0 mt-0.5" />
-                        <p>Ao criar no Supabase, o sistema completará o email automaticamente (ex: usuario@helpdesk.com).</p>
+                    
+                    <div className="flex items-start gap-2 mt-2 text-xs text-emerald-700 bg-emerald-50 p-2 rounded border border-emerald-100">
+                        <CheckCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                        <p>O sistema criará o login de acesso e o perfil no banco de dados automaticamente.</p>
                     </div>
                  </div>
                  <button 
@@ -128,12 +129,12 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                     {isSubmitting ? (
                         <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            Salvando...
+                            Processando...
                         </>
                     ) : (
                         <>
                             <Save className="w-4 h-4" />
-                            Cadastrar Usuário
+                            Cadastrar no Sistema
                         </>
                     )}
                  </button>
