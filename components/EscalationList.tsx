@@ -33,7 +33,7 @@ export const EscalationList: React.FC<EscalationListProps> = ({ tickets, onResol
   // Update summary whenever form data changes
   useEffect(() => {
     if (editFormData) {
-      const summary = `RESUMO DE VALIDAÇÃO / FECHAMENTO
+      const summary = `=== ESCALADA / VALIDAÇÃO ===
 ------------------------------------------
 TASK: ${editFormData.taskId} | INC: ${editFormData.serviceRequest}
 HOSTNAME: ${editFormData.hostname}
@@ -69,6 +69,16 @@ Matrícula: ${editFormData.clientWitnessId || 'N/A'}
   const handleInputChange = (field: keyof Ticket, value: any) => {
     if (editFormData) {
       setEditFormData({ ...editFormData, [field]: value });
+    }
+  };
+
+  const handleSaveOnly = () => {
+    if (editFormData) {
+        // Just updates the data, keeps the original status (OPEN/IN_PROGRESS)
+        // This ensures it stays in the escalation list but persists the data
+        onResolve(editFormData);
+        setSelectedTicket(null);
+        setEditFormData(null);
     }
   };
 
@@ -447,12 +457,22 @@ ${ticket.analystAction}`;
                     >
                         Cancelar
                     </button>
+                    {/* Botão Salvar (Mantém o chamado aberto) */}
+                    <button 
+                        onClick={handleSaveOnly}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-medium shadow-sm shadow-indigo-200 flex items-center gap-2"
+                        title="Salvar informações e manter em aberto"
+                    >
+                        <Save className="w-4 h-4" />
+                        Salvar
+                    </button>
+                    {/* Botão Validar e Fechar */}
                     <button 
                         onClick={handleSaveAndClose}
                         className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg text-sm font-medium shadow-lg shadow-green-200 flex items-center gap-2"
                         title="Salvar validação e fechar chamado"
                     >
-                        <Save className="w-4 h-4" />
+                        <Check className="w-4 h-4" />
                         Validar e Fechar
                     </button>
                 </div>
