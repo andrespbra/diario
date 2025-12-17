@@ -105,8 +105,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     <p className="font-mono text-gray-500 mb-1 text-[10px] uppercase">Credenciais Padrão (Após rodar SQL)</p>
                     <p className="text-white font-mono text-xs">User: admin</p>
                     <p className="text-white font-mono text-xs">Pass: 123456</p>
-                    */}
+                    
                 </div>
+                */}
              </div>
           </div>
           
