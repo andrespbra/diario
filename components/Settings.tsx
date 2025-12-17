@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile, UserLevel } from '../types';
-import { UserPlus, Shield, User, Trash2, Save, Lock, Info, Loader2, CheckCircle, Database } from 'lucide-react';
+import { UserPlus, Shield, User, Trash2, Save, Lock, Loader2 } from 'lucide-react';
 
 interface SettingsProps {
   users: UserProfile[];
@@ -17,7 +17,7 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Safe ID generator that works in HTTP (non-secure) contexts too
+  // Safe ID generator
   const generateId = () => {
     if (typeof crypto !== 'undefined' && crypto.randomUUID) {
         return crypto.randomUUID();
@@ -32,7 +32,7 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
     setIsSubmitting(true);
 
     const userProfile: UserProfile = {
-      id: generateId(), // This ID is temporary, Supabase Auth generates the real one
+      id: generateId(), // ID temporário, será substituído pelo real na função pai
       name: newUser.name,
       username: newUser.username,
       nivel: newUser.nivel
@@ -51,8 +51,8 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
            <Shield className="w-6 h-6 text-white" />
         </div>
         <div>
-           <h1 className="text-2xl font-bold text-gray-800">Administração de Usuários</h1>
-           <p className="text-sm text-gray-500">Gerencie quem tem acesso ao sistema HelpDesk AI.</p>
+           <h1 className="text-2xl font-bold text-gray-800">Gerenciar Acessos</h1>
+           <p className="text-sm text-gray-500">Controle de usuários e permissões do sistema.</p>
         </div>
       </div>
 
@@ -61,27 +61,26 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
         {/* Form Section */}
         <div className="lg:col-span-1">
            <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden sticky top-6">
-              <div className="bg-indigo-600 px-6 py-4 border-b border-indigo-700">
-                 <h2 className="font-bold text-white flex items-center gap-2">
-                    <UserPlus className="w-5 h-5" />
-                    Registrar Novo Acesso
+              <div className="bg-gray-50 px-6 py-4 border-b border-gray-200">
+                 <h2 className="font-bold text-gray-800 flex items-center gap-2">
+                    <UserPlus className="w-5 h-5 text-indigo-600" />
+                    Adicionar Usuário
                  </h2>
-                 <p className="text-indigo-100 text-xs mt-1">O usuário será criado imediatamente.</p>
               </div>
               <form onSubmit={handleSubmit} className="p-6 space-y-4">
                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">Nome Completo</label>
+                    <label className="text-sm font-bold text-gray-700">Nome</label>
                     <input 
                       required
                       type="text" 
                       value={newUser.name}
                       onChange={(e) => setNewUser({...newUser, name: e.target.value})}
-                      placeholder="Ex: João Silva"
+                      placeholder="Nome do colaborador"
                       className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none"
                     />
                  </div>
                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">Login (Usuário)</label>
+                    <label className="text-sm font-bold text-gray-700">Login (Email/User)</label>
                     <div className="relative">
                         <User className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
                         <input 
@@ -89,13 +88,13 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                         type="text" 
                         value={newUser.username}
                         onChange={(e) => setNewUser({...newUser, username: e.target.value})}
-                        placeholder="Ex: joao.silva"
+                        placeholder="usuario.sistema"
                         className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none"
                         />
                     </div>
                  </div>
                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">Senha de Acesso</label>
+                    <label className="text-sm font-bold text-gray-700">Senha Inicial</label>
                     <div className="relative">
                         <Lock className="w-4 h-4 text-gray-400 absolute left-3 top-3" />
                         <input 
@@ -110,37 +109,31 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                     </div>
                  </div>
                  <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-700">Nível de Permissão</label>
+                    <label className="text-sm font-bold text-gray-700">Permissão</label>
                     <select 
                        value={newUser.nivel}
                        onChange={(e) => setNewUser({...newUser, nivel: e.target.value as UserLevel})}
                        className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
                     >
-                       <option value="Analista">Analista (Padrão)</option>
-                       <option value="Admin">Administrador Total</option>
+                       <option value="Analista">Analista</option>
+                       <option value="Admin">Administrador</option>
                     </select>
-                 </div>
-
-                 {/* Explicit Internal Info */}
-                 <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs text-gray-600 flex gap-2">
-                    <Database className="w-4 h-4 text-indigo-500 shrink-0" />
-                    <p>Ao salvar, o sistema processará o cadastro no banco de dados e liberará o acesso.</p>
                  </div>
 
                  <button 
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full mt-2 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-bold py-2.5 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-200"
+                    className="w-full mt-4 bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-bold py-3 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm"
                  >
                     {isSubmitting ? (
                         <>
                             <Loader2 className="w-4 h-4 animate-spin" />
-                            Criando Acesso...
+                            Salvando...
                         </>
                     ) : (
                         <>
                             <Save className="w-4 h-4" />
-                            Confirmar Cadastro
+                            Cadastrar
                         </>
                     )}
                  </button>
@@ -154,19 +147,19 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
               <div className="bg-gray-50 px-6 py-4 border-b border-gray-200 flex justify-between items-center">
                  <h2 className="font-bold text-gray-800 flex items-center gap-2">
                     <User className="w-5 h-5 text-gray-600" />
-                    Usuários Ativos
+                    Usuários Cadastrados
                  </h2>
                  <span className="text-xs font-bold bg-indigo-100 text-indigo-700 px-3 py-1 rounded-full border border-indigo-200">
-                    {users.length} Colaboradores
+                    Total: {users.length}
                  </span>
               </div>
               <div className="overflow-x-auto">
                  <table className="w-full text-left">
                     <thead className="bg-gray-50 border-b border-gray-100">
                        <tr>
-                          <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">Colaborador</th>
+                          <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">Nome</th>
                           <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">Login</th>
-                          <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">Permissão</th>
+                          <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase">Nível</th>
                           <th className="px-6 py-3 text-xs font-bold text-gray-500 uppercase text-right">Ações</th>
                        </tr>
                     </thead>
@@ -199,13 +192,13 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                              <td className="px-6 py-4 text-right">
                                 <button 
                                    onClick={() => onDeleteUser(user.id)}
-                                   disabled={user.username === 'admin'} // Cannot delete main admin
+                                   disabled={user.username === 'admin'} 
                                    className={`p-2 rounded-lg transition-colors ${
                                       user.username === 'admin' 
                                          ? 'text-gray-300 cursor-not-allowed' 
                                          : 'text-red-500 hover:text-red-700 hover:bg-red-50 border border-transparent hover:border-red-100'
                                    }`}
-                                   title="Revogar Acesso"
+                                   title="Remover"
                                 >
                                    <Trash2 className="w-4 h-4" />
                                 </button>

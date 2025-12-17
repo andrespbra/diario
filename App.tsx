@@ -311,15 +311,12 @@ const App: React.FC = () => {
           return;
       }
 
-      // TRICK: Create a separate client instance to create the user.
-      // If we use the main `supabase` instance, calling auth.signUp will log out the current admin!
+      // IMPORTANTE: Criamos uma instância separada para não deslogar o admin atual.
       const tempClient = createClient(supabaseUrl, supabaseAnonKey);
-
       const email = newUserProfile.username.includes('@') ? newUserProfile.username : `${newUserProfile.username}@helpdesk.com`;
 
       try {
-          // 1. Create User in Supabase Auth
-          // We add options.autoSignIn = false just to be extra safe with the temporary client
+          // 1. Tentar criar o usuário no Auth
           const { data, error } = await tempClient.auth.signUp({
               email: email,
               password: password,
@@ -331,32 +328,37 @@ const App: React.FC = () => {
               }
           });
 
+          // Tratamento robusto de erros
           if (error) {
               if (error.message.includes("registered") || error.message.includes("exists")) {
-                   showNotification("Este usuário já possui cadastro.");
-                   return;
+                  showNotification("Aviso: Email já cadastrado no sistema.");
+                  // Não podemos continuar pois não temos o ID do usuário existente
+                  return; 
               }
               throw error;
           }
 
+          // 2. Se o Auth foi criado (ou pendente de confirmação), garantimos o perfil
           if (data.user) {
-              // 2. SAFETY NET: Manually insert into public.user_profiles using the ADMIN session (currentUser).
               const { error: profileError } = await supabase.from('user_profiles').upsert({
-                  id: data.user.id,
+                  id: data.user.id, // ID retornado pelo signUp
                   name: newUserProfile.name,
                   username: newUserProfile.username,
                   nivel: newUserProfile.nivel
               });
 
               if (profileError) {
-                  console.warn("Manual profile creation failed (Trigger might handle it):", profileError);
+                  console.error("Profile creation error:", profileError);
+                  showNotification("Usuário criado no Auth, mas falha ao salvar perfil.");
+              } else {
+                  showNotification("Usuário cadastrado com sucesso!");
+                  setTimeout(fetchAllUsers, 500);
               }
-
-              showNotification(`Usuário ${newUserProfile.name} cadastrado e liberado!`);
-              
-              // Immediate refresh
-              setTimeout(fetchAllUsers, 500);
+          } else {
+               // Caso raro onde data.user é null (ex: configurações estritas de confirmação)
+               showNotification("Cadastro enviado. Verifique se a confirmação por email é necessária.");
           }
+
       } catch (err: any) {
           console.error("Error creating user:", err);
           showNotification(`Erro no cadastro: ${err.message}`);
@@ -370,17 +372,14 @@ const App: React.FC = () => {
         return;
      }
 
-     // Note: Client-side deletion from auth.users is NOT possible with anon key.
-     // We can only delete from public.user_profiles if RLS allows it.
-     
-     // Deleting from profile at least removes access to the app logic (if we check profile existence on login)
+     // Remoção client-side apenas do perfil (Auth requer função de admin)
      const { error } = await supabase.from('user_profiles').delete().eq('id', userId);
      
      if (error) {
-         showNotification("Erro: Não foi possível remover (Requer backend).");
+         showNotification("Erro ao remover perfil.");
          console.error(error);
      } else {
-         showNotification("Perfil removido. O acesso foi revogado.");
+         showNotification("Acesso do usuário revogado.");
          fetchAllUsers();
      }
   };
