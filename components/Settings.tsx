@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { UserProfile, UserLevel } from '../types';
-import { UserPlus, Shield, User, Trash2, Save, Lock, Loader2, Search, X, Mail, Key, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
+import { UserPlus, Shield, User, Trash2, Save, Lock, Loader2, Search, X, Key, Eye, EyeOff, CheckCircle2, AlertCircle } from 'lucide-react';
 
 interface SettingsProps {
   users: UserProfile[];
@@ -15,35 +15,14 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
   
   const [newUser, setNewUser] = useState({
     name: '',
-    username: '',
+    username: '', 
     password: '', 
     nivel: 'Analista' as UserLevel
   });
   
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Helper to preview email (Must match App.tsx logic)
-  const getPreviewEmail = (username: string) => {
-      const rawInput = username.trim().toLowerCase();
-      if (!rawInput) return '...';
-
-      if (rawInput.includes('@')) {
-          return rawInput;
-      }
-
-      // Allow a-z, 0-9 and dots. Remove consecutive dots.
-      const clean = rawInput
-          .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-          .replace(/[^a-z0-9.]/g, "")
-          .replace(/\.+/g, ".");
-      
-      return `${clean}@example.com`;
-  };
-
   const generateId = () => {
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-        return crypto.randomUUID();
-    }
     return Math.random().toString(36).substring(2) + Date.now().toString(36);
   };
 
@@ -56,9 +35,9 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
     const userProfile: UserProfile = {
       id: generateId(),
       name: newUser.name,
-      username: newUser.username,
+      username: newUser.username.trim(), 
       nivel: newUser.nivel,
-      mustChangePassword: true // Default for new users created via settings
+      mustChangePassword: true
     };
 
     await onAddUser(userProfile, newUser.password);
@@ -83,7 +62,7 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
              <Shield className="w-6 h-6 text-indigo-600" />
              Gestão de Acessos
            </h1>
-           <p className="text-sm text-gray-500">Controle de usuários, senhas e permissões.</p>
+           <p className="text-sm text-gray-500">Controle de usuários e permissões locais.</p>
         </div>
         
         <div className="flex gap-3">
@@ -113,8 +92,8 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
              <table className="w-full text-left border-collapse">
                 <thead className="bg-gray-50 border-b border-gray-100 sticky top-0 z-10">
                    <tr>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Usuário</th>
-                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Login</th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Nome</th>
+                      <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Login (Usuário)</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Status Senha</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Perfil</th>
                       <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-right">Ações</th>
@@ -148,7 +127,7 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                              </td>
                              <td className="px-6 py-4">
                                 <div className="flex items-center gap-2 text-gray-600">
-                                    <Mail className="w-3.5 h-3.5 text-gray-400" />
+                                    <Lock className="w-3.5 h-3.5 text-gray-400" />
                                     <span className="text-sm font-medium">{user.username}</span>
                                 </div>
                              </td>
@@ -194,7 +173,7 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
              </table>
           </div>
           <div className="bg-white border-t border-gray-200 p-3 text-xs text-gray-400 flex justify-end">
-              Security Log Active • {filteredUsers.length} Users
+              Database Local • {filteredUsers.length} Users
           </div>
       </div>
 
@@ -260,10 +239,10 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                             </div>
 
                             <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-gray-600 uppercase tracking-wide">Login / Usuário</label>
+                                <label className="text-xs font-bold text-gray-600 uppercase tracking-wide">Usuário (Login)</label>
                                 <div className="relative">
                                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                        <Mail className="h-4 w-4 text-gray-400" />
+                                        <Lock className="h-4 w-4 text-gray-400" />
                                     </div>
                                     <input 
                                         required
@@ -271,15 +250,12 @@ export const Settings: React.FC<SettingsProps> = ({ users, onAddUser, onDeleteUs
                                         value={newUser.username}
                                         onChange={(e) => setNewUser({...newUser, username: e.target.value})}
                                         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-indigo-500 focus:border-transparent outline-none transition-all"
-                                        placeholder="Ex: ana.souza (sem espaços)"
+                                        placeholder="Ex: ana.souza"
                                     />
                                 </div>
-                                <div className="bg-indigo-50 border border-indigo-100 rounded-lg p-2 flex items-start gap-2 mt-2">
-                                    <Mail className="w-3 h-3 text-indigo-500 mt-0.5 shrink-0" />
-                                    <p className="text-[10px] text-indigo-700">
-                                        Login interno: <span className="font-bold">{getPreviewEmail(newUser.username)}</span>
-                                    </p>
-                                </div>
+                                <p className="text-[10px] text-gray-400 pl-1 mt-1">
+                                    Digite o nome de usuário para login.
+                                </p>
                             </div>
 
                             <div className="space-y-1.5">

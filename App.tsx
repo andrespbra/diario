@@ -8,433 +8,109 @@ import { LoginPage } from './components/LoginPage';
 import { Settings } from './components/Settings';
 import { ChangePassword } from './components/ChangePassword';
 import { Ticket, ViewState, UserProfile, TicketStatus } from './types';
-import { Menu, X, Loader2, AlertTriangle, KeyRound } from 'lucide-react';
-import { supabase, isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from './lib/supabaseClient';
-import { createClient } from '@supabase/supabase-js';
+import { Menu, X, Loader2, AlertTriangle } from 'lucide-react';
+import { DataManager } from './services/dataManager';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [users, setUsers] = useState<UserProfile[]>([]); // For Admin settings
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
-  const [configError, setConfigError] = useState(false);
 
   // 1. Handle Authentication Session
   useEffect(() => {
     const checkSession = async () => {
-      // If no valid URL is configured, skip network check to avoid "Failed to fetch"
-      if (!isSupabaseConfigured) {
-          console.warn("Supabase not configured. Entering config/demo state.");
-          setSessionLoading(false);
-          setConfigError(true);
-          return;
+      const user = DataManager.getSession();
+      if (user) {
+          setCurrentUser(user);
+          loadTickets();
+          if (user.nivel === 'Admin') loadUsers();
       }
-
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        
-        if (session?.user) {
-          fetchUserProfile(session.user.id);
-        } else {
-          setSessionLoading(false);
-        }
-      } catch (err) {
-        console.warn("Supabase connection check failed:", err);
-        setSessionLoading(false);
-        // Fallback if we missed the config check or network failed
-        setConfigError(true);
-      }
+      setSessionLoading(false);
     };
 
     checkSession();
-
-    // Only set up listener if configured
-    if (isSupabaseConfigured) {
-        const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-        if (session?.user) {
-            fetchUserProfile(session.user.id);
-        } else {
-            setCurrentUser(null);
-            setSessionLoading(false);
-        }
-        });
-        return () => subscription.unsubscribe();
-    }
   }, []);
 
-  // 2. Fetch User Profile
-  const fetchUserProfile = async (userId: string) => {
-    try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', userId)
-        .single();
-      
-      if (error && error.code !== 'PGRST116') {
-         console.error('Error fetching profile:', error);
-      }
-      
-      if (data) {
-        // Map snake_case from DB to camelCase for TS
-        const profile: UserProfile = {
-            id: data.id,
-            name: data.name,
-            username: data.username,
-            nivel: data.nivel,
-            mustChangePassword: data.must_change_password
-        };
-
-        setCurrentUser(profile);
-        fetchTickets(); // Load tickets once user is known
-        if (profile.nivel === 'Admin') fetchAllUsers();
-      }
-    } catch (e) {
-        console.error("Profile fetch error", e);
-    } finally {
-      setSessionLoading(false);
-    }
+  const loadTickets = () => {
+      const data = DataManager.getTickets();
+      setTickets(data);
   };
 
-  // 3. Fetch Tickets (Mapping Snake_case DB to CamelCase App)
-  const fetchTickets = async () => {
-    if (!isSupabaseConfigured) return;
-
-    const { data, error } = await supabase
-      .from('tickets')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Error fetching tickets:', error);
-      showNotification('Erro ao carregar chamados.');
-      return;
-    }
-
-    if (data) {
-      // Map DB columns to TypeScript Interface
-      const mappedTickets: Ticket[] = data.map((t: any) => ({
-        id: t.id,
-        userId: t.user_id,
-        customerName: t.customer_name,
-        locationName: t.location_name,
-        taskId: t.task_id,
-        serviceRequest: t.service_request,
-        hostname: t.hostname,
-        subject: t.subject,
-        analystName: t.analyst_name,
-        supportStartTime: t.support_start_time,
-        supportEndTime: t.support_end_time,
-        description: t.description,
-        analystAction: t.analyst_action,
-        isDueCall: t.is_due_call,
-        usedACFS: t.used_acfs,
-        hasInkStaining: t.has_ink_staining,
-        partReplaced: t.part_replaced,
-        partDescription: t.part_description,
-        tagVLDD: t.tag_vldd,
-        tagNLVDD: t.tag_nlvdd,
-        testWithCard: t.test_with_card,
-        sicWithdrawal: t.sic_withdrawal,
-        sicDeposit: t.sic_deposit,
-        sicSensors: t.sic_sensors,
-        sic_smart_power: t.sic_smart_power,
-        clientWitnessName: t.client_witness_name,
-        clientWitnessId: t.client_witness_id,
-        validatedBy: t.validated_by,
-        validatedAt: t.validated_at ? new Date(t.validated_at) : undefined,
-        aiSuggestedSolution: t.ai_suggested_solution,
-        status: t.status,
-        priority: t.priority,
-        isEscalated: t.is_escalated,
-        createdAt: new Date(t.created_at),
-      }));
-      setTickets(mappedTickets);
-    }
+  const loadUsers = () => {
+      const data = DataManager.getUsers();
+      setUsers(data);
   };
 
-  const fetchAllUsers = async () => {
-      if (!isSupabaseConfigured) return;
-      const { data } = await supabase.from('user_profiles').select('*');
-      if (data) {
-          const mappedUsers: UserProfile[] = data.map((u: any) => ({
-              id: u.id,
-              name: u.name,
-              username: u.username,
-              nivel: u.nivel,
-              mustChangePassword: u.must_change_password
-          }));
-          setUsers(mappedUsers);
-      }
+  // Called by LoginPage
+  const handleLoginSuccess = (user: UserProfile) => {
+      setCurrentUser(user);
+      loadTickets();
+      if (user.nivel === 'Admin') loadUsers();
   };
 
-  // 4. Create Ticket (Mapping CamelCase to Snake_case)
+  const handleLogout = async () => {
+    await DataManager.logout();
+    setCurrentUser(null);
+    setTickets([]);
+  };
+
+  // 4. Create Ticket
   const handleCreateTicket = async (ticket: Ticket) => {
     if (!currentUser) return;
-
-    // Demo Mode: Just add to local state
-    if (!isSupabaseConfigured) {
-        setTickets(prev => [ticket, ...prev]);
-        showNotification("Chamado registrado (Modo Demo).");
-        setCurrentView('dashboard');
-        return;
-    }
-
-    const dbPayload = {
-        user_id: currentUser.id,
-        customer_name: ticket.customerName,
-        location_name: ticket.locationName,
-        task_id: ticket.taskId,
-        service_request: ticket.serviceRequest,
-        hostname: ticket.hostname,
-        subject: ticket.subject,
-        analyst_name: ticket.analystName,
-        support_start_time: ticket.supportStartTime,
-        support_end_time: ticket.supportEndTime,
-        description: ticket.description,
-        analyst_action: ticket.analystAction,
-        is_due_call: ticket.isDueCall,
-        used_acfs: ticket.usedACFS,
-        has_ink_staining: ticket.hasInkStaining,
-        part_replaced: ticket.partReplaced,
-        part_description: ticket.partDescription,
-        tag_vldd: ticket.tagVLDD,
-        tag_nlvdd: ticket.tagNLVDD,
-        client_witness_name: ticket.clientWitnessName,
-        client_witness_id: ticket.clientWitnessId,
-        status: ticket.status,
-        priority: ticket.priority,
-        is_escalated: ticket.isEscalated,
-        ai_suggested_solution: ticket.aiSuggestedSolution
-    };
-
-    const { data, error } = await supabase.from('tickets').insert([dbPayload]).select();
-
-    if (error) {
-        console.error('Error creating ticket:', error);
-        showNotification('Erro ao salvar chamado.');
-    } else {
-        fetchTickets();
+    
+    try {
+        await DataManager.addTicket(ticket);
+        loadTickets();
         showNotification("Chamado registrado com sucesso!");
         setCurrentView('dashboard');
+    } catch (error) {
+        console.error(error);
+        showNotification("Erro ao salvar chamado.");
     }
   };
 
   // 5. Update/Resolve Ticket
   const handleResolveTicket = async (updatedTicket: Ticket) => {
-    // Demo Mode
-    if (!isSupabaseConfigured) {
-        setTickets(prev => prev.map(t => t.id === updatedTicket.id ? { ...updatedTicket, status: updatedTicket.status || TicketStatus.RESOLVED } : t));
-        showNotification("Chamado atualizado (Modo Demo).");
-        return;
-    }
-
-    const dbPayload = {
-        task_id: updatedTicket.taskId, // Allow editing identifiers during validation
-        service_request: updatedTicket.serviceRequest,
-        hostname: updatedTicket.hostname,
-        customer_name: updatedTicket.customerName,
-        description: updatedTicket.description,
-        analyst_action: updatedTicket.analystAction,
-        part_replaced: updatedTicket.partReplaced,
-        part_description: updatedTicket.partDescription,
-        tag_vldd: updatedTicket.tagVLDD,
-        tag_nlvdd: updatedTicket.tagNLVDD,
-        test_with_card: updatedTicket.testWithCard,
-        sic_withdrawal: updatedTicket.sicWithdrawal,
-        sic_deposit: updatedTicket.sicDeposit,
-        sic_sensors: updatedTicket.sicSensors,
-        sic_smart_power: updatedTicket.sicSmartPower,
-        client_witness_name: updatedTicket.clientWitnessName,
-        client_witness_id: updatedTicket.clientWitnessId,
-        status: updatedTicket.status || TicketStatus.RESOLVED, // Allow status CLOSED or RESOLVED
-        validated_at: new Date().toISOString(),
-        validated_by: currentUser?.name
-    };
-
-    const { error } = await supabase
-        .from('tickets')
-        .update(dbPayload)
-        .eq('id', updatedTicket.id);
-
-    if (error) {
-        console.error('Error updating ticket:', error);
-        showNotification('Erro ao validar chamado.');
-    } else {
-        fetchTickets();
-        const msg = updatedTicket.status === TicketStatus.CLOSED ? 'Chamado fechado manualmente.' : `Chamado TASK-${updatedTicket.taskId} validado e resolvido.`;
+    try {
+        await DataManager.updateTicket(updatedTicket);
+        loadTickets();
+        const msg = updatedTicket.status === TicketStatus.CLOSED ? 'Chamado fechado.' : `Chamado TASK-${updatedTicket.taskId} validado.`;
         showNotification(msg);
+    } catch (error) {
+        console.error(error);
+        showNotification("Erro ao atualizar chamado.");
     }
-  };
-
-  const handleLogout = async () => {
-    if (isSupabaseConfigured) {
-        await supabase.auth.signOut();
-    }
-    setCurrentUser(null);
-    setTickets([]);
   };
 
   // Logic to Enforce Password Change
   const handleForcePasswordChange = async (newPassword: string) => {
     if (!currentUser) return;
 
-    if (!isSupabaseConfigured) {
-        // Demo Mode Simulation
-        setCurrentUser({ ...currentUser, mustChangePassword: false });
-        showNotification("Senha alterada (Modo Demo).");
-        return;
+    try {
+        await DataManager.changePassword(currentUser.username, newPassword);
+        
+        // Update Local State
+        setCurrentUser(prev => prev ? ({ ...prev, mustChangePassword: false }) : null);
+        showNotification("Senha atualizada com sucesso!");
+    } catch (error: any) {
+        showNotification(error.message);
     }
-
-    // 1. Update Auth Password (Supabase User)
-    const { error: authError } = await supabase.auth.updateUser({ password: newPassword });
-    if (authError) throw authError;
-
-    // 2. Update Profile Table (must_change_password = false)
-    const { error: profileError } = await supabase
-        .from('user_profiles')
-        .update({ must_change_password: false })
-        .eq('id', currentUser.id);
-
-    if (profileError) {
-        console.error("Failed to update profile status", profileError);
-        // We continue anyway since auth password was changed
-    }
-
-    // 3. Update Local State
-    setCurrentUser(prev => prev ? ({ ...prev, mustChangePassword: false }) : null);
-    showNotification("Senha atualizada com sucesso!");
-  };
-
-  // Special handler for Demo Mode Login
-  const handleDemoLogin = () => {
-      setConfigError(false);
-      setCurrentUser({
-          id: 'demo-user-id',
-          name: 'Admin Demo',
-          username: 'admin@demo.com',
-          nivel: 'Admin',
-          mustChangePassword: false
-      });
-      // Add some sample data for demo
-      setTickets([
-          {
-            id: 'demo-1',
-            userId: 'demo-user-id',
-            customerName: 'Loja Exemplo 01',
-            locationName: 'São Paulo - SP',
-            taskId: 'TASK-1001',
-            serviceRequest: 'INC-500',
-            hostname: 'WK-100',
-            subject: '1200 - Duvida técnica',
-            analystName: 'Admin Demo',
-            supportStartTime: new Date().toISOString(),
-            supportEndTime: '',
-            description: 'Sistema lento ao iniciar.',
-            analystAction: 'Limpeza de cache realizada.',
-            isDueCall: true,
-            usedACFS: false,
-            hasInkStaining: false,
-            partReplaced: false,
-            tagVLDD: false,
-            tagNLVDD: false,
-            status: 'Aberto', // Mapped from Enum manually for demo
-            priority: 'Média', // Mapped from Enum manually
-            isEscalated: false,
-            createdAt: new Date()
-          } as any
-      ]);
   };
 
   const handleAddUser = async (newUserProfile: UserProfile, password?: string) => {
-      if (!isSupabaseConfigured) {
-          // Demo mode simulation
-          setUsers(prev => [...prev, { ...newUserProfile, mustChangePassword: true }]);
-          showNotification("Usuário criado (Demo).");
-          return;
-      }
-
       if (!password || password.length < 6) {
           showNotification("Erro: A senha deve ter no mínimo 6 caracteres.");
           return;
       }
 
-      // CORREÇÃO: Criar cliente isolado para evitar conflito com sessão do admin logado
-      const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
-          auth: {
-              persistSession: false,
-              autoRefreshToken: false,
-              detectSessionInUrl: false
-          }
-      });
-      
-      const rawInput = newUserProfile.username.trim().toLowerCase();
-      let email = "";
-
-      if (rawInput.includes('@')) {
-         // Se o usuário digitou um email completo, usamos ele
-         email = rawInput;
-      } else {
-         // Limpeza: Permite letras, números e pontos (mas remove pontos seguidos)
-         const cleanInput = rawInput
-            .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Remove acentos
-            .replace(/[^a-z0-9.]/g, "") // Mantém a-z, 0-9 e ponto
-            .replace(/\.+/g, "."); // Remove pontos consecutivos
-         
-         // @example.com é um domínio reservado pela IANA para documentação e é garantidamente válido
-         email = `${cleanInput}@example.com`;
-      }
-
       try {
-          // 1. Tentar criar o usuário no Auth
-          const { data, error } = await tempClient.auth.signUp({
-              email: email,
-              password: password,
-              options: {
-                  data: {
-                      name: newUserProfile.name,
-                      nivel: newUserProfile.nivel,
-                      mustChangePassword: true
-                  }
-              }
-          });
-
-          // Tratamento robusto de erros
-          if (error) {
-              console.error("Auth Error:", error); 
-              
-              if (error.message.includes("registered") || error.message.includes("exists")) {
-                  showNotification("Aviso: Usuário já cadastrado.");
-                  return; 
-              }
-              // Display raw error for better debugging of "invalid format" issues
-              if (error.message.includes("invalid") || error.message.includes("format")) {
-                 showNotification(`Erro Supabase: ${error.message}. Tente digitar um email real completo.`);
-                 return;
-              }
-              if (error.message.includes("Password")) {
-                  showNotification(`Erro na senha: ${error.message}`);
-                  return;
-              }
-              
-              // Fallback for other errors
-              showNotification(`Erro: ${error.message}`);
-              return;
-          }
-
-          // 2. Auth criado com sucesso 
-          if (data.user) {
-              const displayEmail = email.includes("@example.com") ? email.split('@')[0] : email;
-              showNotification(`Usuário "${displayEmail}" criado com sucesso!`);
-              
-              // Pequeno delay para garantir que o banco processou a trigger
-              setTimeout(fetchAllUsers, 1000);
-          }
-
+          await DataManager.addUser(newUserProfile, password);
+          showNotification(`Usuário "${newUserProfile.username}" criado com sucesso!`);
+          loadUsers();
       } catch (err: any) {
           console.error("Error creating user:", err);
           showNotification(`Erro no cadastro: ${err.message}`);
@@ -442,26 +118,18 @@ const App: React.FC = () => {
   };
 
   const handleDeleteUser = async (userId: string) => {
-     if (!isSupabaseConfigured) {
-        setUsers(prev => prev.filter(u => u.id !== userId));
-        showNotification("Usuário removido (Demo).");
-        return;
-     }
-
-     const { error } = await supabase.from('user_profiles').delete().eq('id', userId);
-     
-     if (error) {
-         showNotification("Erro ao remover perfil.");
-         console.error(error);
-     } else {
-         showNotification("Acesso do usuário revogado.");
-         fetchAllUsers();
+     try {
+         await DataManager.deleteUser(userId);
+         showNotification("Usuário removido.");
+         loadUsers();
+     } catch (error) {
+         showNotification("Erro ao remover usuário.");
      }
   };
 
   const showNotification = (msg: string) => {
       setNotification(msg);
-      setTimeout(() => setNotification(null), 5000); // Increased time for easier reading
+      setTimeout(() => setNotification(null), 5000);
   };
 
   if (sessionLoading) {
@@ -474,7 +142,7 @@ const App: React.FC = () => {
 
   // If no user is logged in, show Login Page
   if (!currentUser) {
-    return <LoginPage onDemoLogin={handleDemoLogin} />;
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
   // FORCE PASSWORD CHANGE SCREEN
@@ -487,7 +155,7 @@ const App: React.FC = () => {
                 </div>
             )}
             <ChangePassword 
-                username={currentUser.name} 
+                username={currentUser.username} 
                 onPasswordChange={handleForcePasswordChange} 
             />
           </>
@@ -519,12 +187,10 @@ const App: React.FC = () => {
         {/* Top Bar with User Info - Desktop only */}
         <div className="hidden md:flex justify-end items-center px-8 py-3 bg-white border-b border-gray-100 gap-4">
              {/* Config Warning */}
-             {!isSupabaseConfigured && (
-                 <div className="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded font-bold flex items-center gap-1">
-                     <AlertTriangle className="w-3 h-3" />
-                     Modo Demo (Sem Backend)
-                 </div>
-             )}
+             <div className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded font-bold flex items-center gap-1">
+                 <AlertTriangle className="w-3 h-3" />
+                 Banco Local (LocalStorage)
+             </div>
              
              <div className="text-right">
                 <p className="text-sm font-bold text-gray-800">{currentUser.name}</p>
