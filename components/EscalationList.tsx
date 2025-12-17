@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Ticket, TicketStatus } from '../types';
-import { AlertTriangle, Clock, MapPin, Eye, X, CheckCircle2, User, FileText, Wrench, Hash, Copy, Check, Save, CreditCard, Activity, Monitor } from 'lucide-react';
+import { AlertTriangle, Clock, MapPin, Eye, X, CheckCircle2, User, FileText, Wrench, Hash, Copy, Check, Save, CreditCard, Activity, Monitor, XCircle } from 'lucide-react';
 
 interface EscalationListProps {
   tickets: Ticket[];
@@ -13,6 +13,7 @@ export const EscalationList: React.FC<EscalationListProps> = ({ tickets, onResol
   const [editFormData, setEditFormData] = useState<Ticket | null>(null);
   const [summaryText, setSummaryText] = useState('');
   const [copied, setCopied] = useState(false);
+  const [copyFeedbackId, setCopyFeedbackId] = useState<string | null>(null);
 
   // Initialize form data when a ticket is selected
   useEffect(() => {
@@ -73,9 +74,33 @@ Matrícula: ${editFormData.clientWitnessId || 'N/A'}
 
   const handleSaveAndClose = () => {
     if (editFormData) {
-      onResolve(editFormData);
+      // Standard validation close sets status to RESOLVED usually, but lets ensure passed object is correct
+      onResolve({ ...editFormData, status: TicketStatus.RESOLVED });
       setSelectedTicket(null);
       setEditFormData(null);
+    }
+  };
+
+  const handleQuickClose = (ticket: Ticket) => {
+    if (window.confirm(`Deseja fechar o chamado ${ticket.taskId} diretamente? Isso limpará os dados de validação.`)) {
+        const closedTicket: Ticket = {
+            ...ticket,
+            status: TicketStatus.CLOSED,
+            // Clear validation fields
+            testWithCard: false,
+            sicWithdrawal: false,
+            sicDeposit: false,
+            sicSensors: false,
+            sicSmartPower: false,
+            clientWitnessName: '',
+            clientWitnessId: '',
+            partReplaced: false,
+            partDescription: '',
+            // Optional: Mark who validated/closed it
+            validatedBy: 'Fechamento Direto',
+            validatedAt: new Date()
+        };
+        onResolve(closedTicket);
     }
   };
 
@@ -83,6 +108,24 @@ Matrícula: ${editFormData.clientWitnessId || 'N/A'}
     navigator.clipboard.writeText(summaryText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleCopyTicketDetails = (ticket: Ticket) => {
+    const textToCopy = `DETALHES DO CHAMADO
+-------------------
+TASK: ${ticket.taskId || 'N/A'}
+CLIENTE: ${ticket.customerName}
+LOCAL: ${ticket.locationName}
+-------------------
+DEFEITO RECLAMADO:
+${ticket.description}
+
+AÇÃO TÉCNICO:
+${ticket.analystAction}`;
+
+    navigator.clipboard.writeText(textToCopy);
+    setCopyFeedbackId(ticket.id);
+    setTimeout(() => setCopyFeedbackId(null), 2000);
   };
 
   return (
@@ -403,7 +446,7 @@ Matrícula: ${editFormData.clientWitnessId || 'N/A'}
                         className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg text-sm font-medium shadow-lg shadow-green-200 flex items-center gap-2"
                     >
                         <Save className="w-4 h-4" />
-                        Fechar
+                        Validar e Fechar
                     </button>
                 </div>
             </div>
@@ -425,7 +468,11 @@ Matrícula: ${editFormData.clientWitnessId || 'N/A'}
                         <div className="flex-1">
                             <div className="flex flex-wrap items-center gap-2 mb-2">
                                 <span className="text-[10px] font-bold bg-red-100 text-red-700 px-2 py-0.5 rounded">CRÍTICO</span>
-                                <span className="text-xs text-gray-400">#{ticket.taskId || ticket.id}</span>
+                                <span className="text-xs text-gray-500 font-mono">
+                                    {ticket.taskId || ticket.id}
+                                    {ticket.serviceRequest && ` / ${ticket.serviceRequest}`}
+                                    {ticket.hostname && ` • ${ticket.hostname}`}
+                                </span>
                                 <span className="text-xs text-gray-400 flex items-center gap-1">
                                     <Clock className="w-3 h-3" />
                                     {ticket.createdAt.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
@@ -444,6 +491,20 @@ Matrícula: ${editFormData.clientWitnessId || 'N/A'}
                             >
                                 <Eye className="w-4 h-4" />
                                 Validar
+                            </button>
+                            <button 
+                                onClick={() => handleCopyTicketDetails(ticket)}
+                                className="w-full bg-slate-50 hover:bg-slate-100 text-slate-700 px-4 py-3 md:py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 border border-slate-200"
+                            >
+                                {copyFeedbackId === ticket.id ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                                {copyFeedbackId === ticket.id ? 'Copiado' : 'Copiar'}
+                            </button>
+                            <button 
+                                onClick={() => handleQuickClose(ticket)}
+                                className="w-full bg-gray-50 hover:bg-gray-100 text-gray-700 px-4 py-3 md:py-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 border border-gray-200"
+                            >
+                                <XCircle className="w-4 h-4" />
+                                Fechar
                             </button>
                         </div>
                     </div>

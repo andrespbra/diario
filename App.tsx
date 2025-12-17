@@ -209,8 +209,8 @@ const App: React.FC = () => {
   const handleResolveTicket = async (updatedTicket: Ticket) => {
     // Demo Mode
     if (!isSupabaseConfigured) {
-        setTickets(prev => prev.map(t => t.id === updatedTicket.id ? { ...updatedTicket, status: TicketStatus.RESOLVED } : t));
-        showNotification("Chamado validado (Modo Demo).");
+        setTickets(prev => prev.map(t => t.id === updatedTicket.id ? { ...updatedTicket, status: updatedTicket.status || TicketStatus.RESOLVED } : t));
+        showNotification("Chamado atualizado (Modo Demo).");
         return;
     }
 
@@ -232,7 +232,7 @@ const App: React.FC = () => {
         sic_smart_power: updatedTicket.sicSmartPower,
         client_witness_name: updatedTicket.clientWitnessName,
         client_witness_id: updatedTicket.clientWitnessId,
-        status: TicketStatus.RESOLVED,
+        status: updatedTicket.status || TicketStatus.RESOLVED, // Allow status CLOSED or RESOLVED
         validated_at: new Date().toISOString(),
         validated_by: currentUser?.name
     };
@@ -247,7 +247,8 @@ const App: React.FC = () => {
         showNotification('Erro ao validar chamado.');
     } else {
         fetchTickets();
-        showNotification(`Chamado TASK-${updatedTicket.taskId} validado e fechado.`);
+        const msg = updatedTicket.status === TicketStatus.CLOSED ? 'Chamado fechado manualmente.' : `Chamado TASK-${updatedTicket.taskId} validado e resolvido.`;
+        showNotification(msg);
     }
   };
 
