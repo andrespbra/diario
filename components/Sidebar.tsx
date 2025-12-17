@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutDashboard, PhoneCall, AlertTriangle, History, Headphones, Settings } from 'lucide-react';
+import { LayoutDashboard, PhoneCall, AlertTriangle, History, Headphones, Settings, Zap } from 'lucide-react';
 import { ViewState, UserProfile } from '../types';
 
 interface SidebarProps {
@@ -14,6 +14,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isMobile
   const navItems = [
     { id: 'dashboard', label: 'Painel', icon: LayoutDashboard },
     { id: 'new-ticket', label: 'Novo Atendimento', icon: PhoneCall },
+    { id: 'tiger-team', label: 'Tiger Team (#198)', icon: Zap, special: true },
     { id: 'escalations', label: 'Escalonados', icon: AlertTriangle },
     { id: 'history', label: 'Histórico', icon: History },
   ];
@@ -50,19 +51,25 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isMobile
         <nav className="p-4 space-y-2 mt-4">
           {navItems.map((item) => {
             const isActive = currentView === item.id;
-            // @ts-ignore - id matches ViewState but TS inference on the array can be tricky
+            const isTiger = item.id === 'tiger-team';
+            
             return (
               <button
                 key={item.id}
                 onClick={() => handleNav(item.id)}
                 className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-all duration-200 ${
                   isActive 
-                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' 
-                    : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+                    ? isTiger 
+                      ? 'bg-amber-600 text-white shadow-lg shadow-amber-900/50'
+                      : 'bg-indigo-600 text-white shadow-lg shadow-indigo-900/50' 
+                    : isTiger
+                      ? 'text-amber-500/70 hover:bg-amber-900/20 hover:text-amber-400'
+                      : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                 }`}
               >
                 <item.icon className={`w-5 h-5 ${isActive ? 'animate-pulse' : ''}`} />
-                <span className="font-medium">{item.label}</span>
+                <span className="font-medium text-sm">{item.label}</span>
+                {isTiger && !isActive && <span className="ml-auto w-2 h-2 bg-amber-500 rounded-full animate-ping"></span>}
               </button>
             );
           })}

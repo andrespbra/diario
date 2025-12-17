@@ -79,4 +79,4 @@ export interface Ticket {
   createdAt: Date;
 }
 
-export type ViewState = 'dashboard' | 'new-ticket' | 'escalations' | 'history' | 'settings';
+export type ViewState = 'dashboard' | 'new-ticket' | 'escalations' | 'history' | 'settings' | 'tiger-team';
