@@ -386,6 +386,7 @@ const App: React.FC = () => {
 
           // Tratamento robusto de erros
           if (error) {
+              console.error("Auth Error:", error); // Log full error for debugging
               if (error.message.includes("registered") || error.message.includes("exists")) {
                   showNotification("Aviso: Email já cadastrado no sistema.");
                   return; 
@@ -393,6 +394,11 @@ const App: React.FC = () => {
               if (error.message.includes("invalid")) {
                  showNotification(`Erro: Formato de email inválido (${email}).`);
                  return;
+              }
+              // Show database errors nicely
+              if (error.message.includes("Database error")) {
+                  showNotification("Erro no banco de dados. Verifique se a coluna must_change_password existe.");
+                  return;
               }
               throw error;
           }

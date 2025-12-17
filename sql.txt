@@ -1,9 +1,9 @@
--- 1. Create Tables (Idempotent)
+-- 1. Estrutura do Banco de Dados (Correção de Colunas)
 
--- Enable PGCrypto for UUID generation if not already enabled
+-- Habilita extensão para UUIDs
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Tabela de Perfis de Usuário
+-- Cria a tabela se não existir (para instalações novas)
 CREATE TABLE IF NOT EXISTS public.user_profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   name TEXT NOT NULL,
@@ -11,6 +11,14 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
   nivel TEXT DEFAULT 'Analista',
   must_change_password BOOLEAN DEFAULT true
 );
+
+-- CORREÇÃO: Adiciona a coluna must_change_password se a tabela já existir mas a coluna não
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_profiles' AND column_name = 'must_change_password') THEN
+        ALTER TABLE public.user_profiles ADD COLUMN must_change_password BOOLEAN DEFAULT true;
+    END IF;
+END $$;
 
 -- Tabela de Chamados
 CREATE TABLE IF NOT EXISTS public.tickets (
@@ -69,10 +77,11 @@ CREATE TABLE IF NOT EXISTS public.tickets (
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- 2. Row Level Security (RLS) - Drop policies first to avoid 'already exists' error on rerun
+-- 2. Row Level Security (RLS)
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
 
+-- Limpa policies antigas para recriar sem erro
 DO $$ 
 BEGIN
     DROP POLICY IF EXISTS "Enable all access for authenticated users" ON public.user_profiles;
@@ -85,7 +94,7 @@ FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Enable all access for authenticated users" ON public.tickets
 FOR ALL USING (true) WITH CHECK (true);
 
--- 3. Trigger for New Users
+-- 3. Trigger para Novos Usuários (Atualizado)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
@@ -95,13 +104,14 @@ BEGIN
     COALESCE(new.raw_user_meta_data->>'name', 'Usuário Novo'),
     split_part(new.email, '@', 1),
     COALESCE(new.raw_user_meta_data->>'nivel', 'Analista'),
+    -- Garante que leia corretamente o booleano, padrão true se nulo
     COALESCE((new.raw_user_meta_data->>'mustChangePassword')::boolean, true)
   );
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Trigger cleanup and creation
+-- Recria o Trigger
 DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 
 CREATE TRIGGER on_auth_user_created
