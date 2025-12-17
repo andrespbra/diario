@@ -314,10 +314,15 @@ const App: React.FC = () => {
 
       // IMPORTANTE: Criamos uma instância separada para não deslogar o admin atual.
       const tempClient = createClient(supabaseUrl, supabaseAnonKey);
-      const email = newUserProfile.username.includes('@') ? newUserProfile.username : `${newUserProfile.username}@helpdesk.com`;
+      
+      // Clean up username/email to prevent whitespace errors (e.g. "User " -> "User @helpdesk.com")
+      const usernameClean = newUserProfile.username.trim();
+      const email = usernameClean.includes('@') ? usernameClean : `${usernameClean}@helpdesk.com`;
 
       try {
           // 1. Tentar criar o usuário no Auth
+          // Se "Enable Email Confirmations" estiver ligado no Supabase, isso envia o email.
+          // Se estiver desligado, o usuário é confirmado automaticamente.
           const { data, error } = await tempClient.auth.signUp({
               email: email,
               password: password,
@@ -335,15 +340,20 @@ const App: React.FC = () => {
                   showNotification("Aviso: Email já cadastrado no sistema.");
                   return; 
               }
+              if (error.message.includes("invalid")) {
+                 showNotification(`Erro: Formato de email inválido (${email}).`);
+                 return;
+              }
               throw error;
           }
 
-          // 2. Auth criado com sucesso (independente de confirmação de email no backend, assumimos sucesso no frontend)
+          // 2. Auth criado com sucesso 
+          // (data.user existe mesmo se pendente de confirmação. Ignoramos data.session null)
           if (data.user) {
               const { error: profileError } = await supabase.from('user_profiles').upsert({
                   id: data.user.id, // ID retornado pelo signUp
                   name: newUserProfile.name,
-                  username: newUserProfile.username,
+                  username: usernameClean,
                   nivel: newUserProfile.nivel
               });
 
