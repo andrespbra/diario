@@ -1,22 +1,20 @@
 
-import { supabase, supabaseUrl, supabaseAnonKey } from '../lib/supabaseClient';
+import { supabase, isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from '../lib/supabaseClient';
 import { createClient } from '@supabase/supabase-js';
-import { Ticket, UserProfile } from '../types';
+import { Ticket, UserProfile, TicketStatus, TicketPriority } from '../types';
 
-// Virtual domain to satisfy Supabase email requirement while using simple usernames
 const VIRTUAL_DOMAIN = '@sys.local';
 
 export const DataManager = {
   // --- AUTHENTICATION ---
   
-  /**
-   * Authenticates user appending the virtual domain if user provided just a username
-   */
   authenticate: async (username: string, password: string): Promise<UserProfile> => {
-    // 1. Prepare Email
+    if (!isSupabaseConfigured) {
+      throw new Error("Supabase não configurado. Verifique as variáveis de ambiente.");
+    }
+
     const email = username.includes('@') ? username : `${username}${VIRTUAL_DOMAIN}`;
     
-    // 2. Auth with Supabase
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -25,7 +23,6 @@ export const DataManager = {
     if (authError) throw new Error(authError.message === 'Invalid login credentials' ? 'Usuário ou senha incorretos' : authError.message);
     if (!authData.user) throw new Error('Erro ao obter sessão de usuário.');
 
-    // 3. Fetch Profile details
     const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
         .select('*')
@@ -33,7 +30,6 @@ export const DataManager = {
         .single();
 
     if (profileError) {
-        // Fallback if profile doesn't exist yet (should exist via trigger, but safe fallback)
         return {
             id: authData.user.id,
             name: 'Usuário',
@@ -53,6 +49,8 @@ export const DataManager = {
   },
 
   getSession: async (): Promise<UserProfile | null> => {
+      if (!isSupabaseConfigured) return null;
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return null;
 
@@ -75,12 +73,13 @@ export const DataManager = {
   },
 
   logout: async (): Promise<void> => {
-      await supabase.auth.signOut();
+      if (isSupabaseConfigured) await supabase.auth.signOut();
   },
 
   // --- USERS MANAGEMENT ---
 
   getUsers: async (): Promise<UserProfile[]> => {
+    if (!isSupabaseConfigured) return [];
     const { data, error } = await supabase.from('user_profiles').select('*');
     if (error) throw error;
     return data.map((u: any) => ({
@@ -92,16 +91,13 @@ export const DataManager = {
     }));
   },
 
-  /**
-   * Creates a user in Supabase using a temporary client to avoid logging out the current admin
-   */
   addUser: async (user: UserProfile, password?: string): Promise<void> => {
+      if (!isSupabaseConfigured) throw new Error("Database offline.");
       const email = user.username.includes('@') ? user.username : `${user.username}${VIRTUAL_DOMAIN}`;
 
-      // Create a temporary client to sign up the new user without affecting current session
       const tempClient = createClient(supabaseUrl, supabaseAnonKey, {
           auth: {
-              persistSession: false, // Don't save this session
+              persistSession: false,
               autoRefreshToken: false,
               detectSessionInUrl: false
           }
@@ -126,7 +122,7 @@ export const DataManager = {
   },
 
   updateUser: async (updatedUser: UserProfile): Promise<void> => {
-      // We only update profile data here. Password changes are handled via auth api.
+      if (!isSupabaseConfigured) return;
       const { error } = await supabase
         .from('user_profiles')
         .update({
@@ -140,19 +136,16 @@ export const DataManager = {
   },
 
   deleteUser: async (userId: string): Promise<void> => {
-    // Note: Deleting from 'user_profiles' via API might not delete from 'auth.users' due to permissions.
-    // Usually, admins disable users or we need a backend function. 
-    // For this implementation, we will delete the profile which effectively hides the user in the app.
+    if (!isSupabaseConfigured) return;
     const { error } = await supabase.from('user_profiles').delete().eq('id', userId);
     if (error) throw error;
   },
 
   changePassword: async (username: string, newPass: string): Promise<void> => {
-     // 1. Update Auth Password
+     if (!isSupabaseConfigured) return;
      const { error: authError } = await supabase.auth.updateUser({ password: newPass });
      if (authError) throw authError;
 
-     // 2. Update Profile Flag
      const { data: { user } } = await supabase.auth.getUser();
      if (user) {
          await supabase
@@ -165,26 +158,22 @@ export const DataManager = {
   // --- TICKETS MANAGEMENT ---
 
   getTickets: async (): Promise<Ticket[]> => {
-    // 1. Check who is logged in
+    if (!isSupabaseConfigured) return [];
+    
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
 
-    // 2. Get User Profile to check Level (Admin or Analista)
     const { data: profile } = await supabase
         .from('user_profiles')
         .select('nivel')
         .eq('id', user.id)
         .single();
 
-    // 3. Build Query
     let query = supabase
       .from('tickets')
       .select('*')
       .order('created_at', { ascending: false });
 
-    // 4. Apply Logic: 
-    // Secure by default: Only if we are 100% sure it is 'Admin' do we show everything.
-    // If profile is null or level is not Admin, we filter by the user's ID.
     const isAdmin = profile?.nivel === 'Admin';
 
     if (!isAdmin) {
@@ -192,7 +181,6 @@ export const DataManager = {
     }
 
     const { data, error } = await query;
-
     if (error) throw error;
 
     return data.map((t: any) => ({
@@ -220,7 +208,7 @@ export const DataManager = {
         sicWithdrawal: t.sic_withdrawal,
         sicDeposit: t.sic_deposit,
         sicSensors: t.sic_sensors,
-        sicSmartPower: t.sic_smart_power, // FIXED TYPO: sic_smart_power -> sicSmartPower
+        sicSmartPower: t.sic_smart_power,
         clientWitnessName: t.client_witness_name,
         clientWitnessId: t.client_witness_id,
         validatedBy: t.validated_by,
@@ -235,7 +223,7 @@ export const DataManager = {
   },
 
   addTicket: async (ticket: Ticket): Promise<void> => {
-      // Map to snake_case for DB
+      if (!isSupabaseConfigured) return;
       const dbPayload = {
         user_id: ticket.userId,
         customer_name: ticket.customerName,
@@ -245,7 +233,6 @@ export const DataManager = {
         hostname: ticket.hostname,
         subject: ticket.subject,
         analyst_name: ticket.analystName,
-        // Convert empty strings to null for timestamp columns to avoid SQL format errors
         support_start_time: ticket.supportStartTime || null,
         support_end_time: ticket.supportEndTime || null,
         description: ticket.description,
@@ -271,6 +258,7 @@ export const DataManager = {
   },
 
   updateTicket: async (updatedTicket: Ticket): Promise<void> => {
+      if (!isSupabaseConfigured) return;
       const dbPayload = {
         task_id: updatedTicket.taskId,
         service_request: updatedTicket.serviceRequest,
@@ -292,7 +280,6 @@ export const DataManager = {
         status: updatedTicket.status,
         is_tiger_team: updatedTicket.isTigerTeam,
         validated_at: new Date().toISOString(),
-        // validated_by logic should handle grabbing current user name if needed, usually passed in updatedTicket or handled by RLS/Trigger
       };
 
       const { error } = await supabase
@@ -304,6 +291,7 @@ export const DataManager = {
   },
 
   deleteTicket: async (ticketId: string): Promise<void> => {
+    if (!isSupabaseConfigured) return;
     const { error } = await supabase.from('tickets').delete().eq('id', ticketId);
     if (error) throw error;
   }

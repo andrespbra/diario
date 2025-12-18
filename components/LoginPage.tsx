@@ -1,7 +1,9 @@
+
 import React, { useState } from 'react';
-import { User, Lock, ArrowRight, Headphones, Loader2, AlertCircle, Cloud } from 'lucide-react';
+import { User, Lock, ArrowRight, Headphones, Loader2, AlertCircle, Cloud, AlertTriangle } from 'lucide-react';
 import { DataManager } from '../services/dataManager';
 import { UserProfile } from '../types';
+import { isSupabaseConfigured } from '../lib/supabaseClient';
 
 interface LoginPageProps {
     onLoginSuccess: (user: UserProfile) => void;
@@ -15,6 +17,12 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isSupabaseConfigured) {
+      setError("Sistema indisponível: Erro na conexão com o banco de dados (Variáveis de ambiente ausentes).");
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -30,7 +38,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4 relative overflow-hidden">
-       {/* Background decoration */}
        <div className="absolute top-0 left-0 w-full h-1/2 bg-slate-900 -skew-y-3 origin-top-left transform -translate-y-20 z-0"></div>
        
        <div className="w-full max-w-md bg-gray-900 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-bottom-8 duration-700 relative z-10 border border-gray-800">
@@ -44,6 +51,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                     Acesso Seguro (Cloud Online)
                 </p>
              </div>
+
+             {!isSupabaseConfigured && (
+                <div className="bg-amber-500/10 border border-amber-500/50 rounded-lg p-3 flex items-start gap-2 text-amber-200 text-sm">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <span className="leading-snug">Atenção: O sistema está em modo demonstração local pois o Supabase não foi configurado.</span>
+                </div>
+             )}
 
              {error && (
                 <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 flex items-start gap-2 text-red-200 text-sm">
@@ -94,10 +108,9 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </button>
              </form>
              
-             {/* Cloud Hint */}
              <div className="pt-2 border-t border-gray-800/50">
                  <div className="mt-2 flex items-center justify-center gap-2 text-xs text-gray-500">
-                     <Cloud className="w-3 h-3" /> Conectado ao Supabase
+                     <Cloud className="w-3 h-3" /> {isSupabaseConfigured ? 'Conectado ao Supabase' : 'Offline Mode'}
                  </div>
              </div>
           </div>

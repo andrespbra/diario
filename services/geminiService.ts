@@ -9,6 +9,16 @@ export interface AIAnalysisResult {
 }
 
 export const analyzeTicketProblem = async (problemDescription: string): Promise<AIAnalysisResult> => {
+  // Pre-check for API KEY to avoid "Failed to fetch"
+  if (!process.env.API_KEY || process.env.API_KEY.includes('YOUR_API_KEY')) {
+    console.warn("Gemini API Key não configurada.");
+    return {
+      suggestedSolution: "IA indisponível: Chave de API não configurada.",
+      recommendedPriority: TicketPriority.MEDIUM,
+      isEscalationRecommended: false
+    };
+  }
+
   if (!problemDescription || problemDescription.length < 5) {
      return {
          suggestedSolution: "Descrição insuficiente para análise.",
@@ -18,10 +28,8 @@ export const analyzeTicketProblem = async (problemDescription: string): Promise<
   }
 
   try {
-    // Per strict coding guidelines: The API key must be obtained exclusively from the environment variable process.env.API_KEY.
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    // Using gemini-3-flash-preview for basic text analysis and classification tasks.
     const response = await ai.models.generateContent({
       model: "gemini-3-flash-preview",
       contents: `Analise a seguinte descrição de problema de suporte técnico: "${problemDescription}".
@@ -43,13 +51,11 @@ export const analyzeTicketProblem = async (problemDescription: string): Promise<
       }
     });
 
-    // Accessing .text property directly as per guidelines.
     const text = response.text;
     if (!text) throw new Error("No response from AI");
     
     const result = JSON.parse(text);
 
-    // Map string response to Enum
     let priority = TicketPriority.MEDIUM;
     switch(result.recommendedPriority) {
         case "Baixa": priority = TicketPriority.LOW; break;
@@ -67,7 +73,7 @@ export const analyzeTicketProblem = async (problemDescription: string): Promise<
   } catch (error) {
     console.error("Error analyzing ticket with Gemini:", error);
     return {
-      suggestedSolution: "Erro ao consultar IA. Verifique o console.",
+      suggestedSolution: "Erro ao consultar IA. Verifique sua conexão ou chaves.",
       recommendedPriority: TicketPriority.MEDIUM,
       isEscalationRecommended: false
     };

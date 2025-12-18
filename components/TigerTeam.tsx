@@ -20,7 +20,6 @@ export const TigerTeam: React.FC<TigerTeamProps> = ({ tickets, onResolve }) => {
   const [summaryText, setSummaryText] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // Added helper function to resolve "Cannot find name 'getStatusBadge'" error
   const getStatusBadge = (status: TicketStatus) => {
     switch(status) {
       case TicketStatus.RESOLVED: 
@@ -32,7 +31,6 @@ export const TigerTeam: React.FC<TigerTeamProps> = ({ tickets, onResolve }) => {
     }
   };
 
-  // Sync edit form with selected ticket and ensure all validation fields exist
   useEffect(() => {
     if (selectedTicket) {
       setEditFormData({ 
@@ -48,7 +46,6 @@ export const TigerTeam: React.FC<TigerTeamProps> = ({ tickets, onResolve }) => {
     }
   }, [selectedTicket]);
 
-  // Generate summary for Tiger Team tickets
   useEffect(() => {
     if (editFormData) {
       const summary = `=== OPERAÇÃO TIGER TEAM #198 ===
@@ -84,7 +81,6 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
     }
   }, [editFormData]);
 
-  // Filtro Estrito: Apenas chamados explicitamente marcados como Tiger Team (#198)
   const allTigerTickets = tickets.filter(t => t.isTigerTeam === true);
 
   const activeMissions = allTigerTickets.filter(t => 
@@ -99,7 +95,7 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
 
   const formatTimeOpen = (date: Date) => {
     const now = new Date();
-    const diff = Math.floor((now.getTime() - date.getTime()) / 60000); // minutes
+    const diff = Math.floor((now.getTime() - date.getTime()) / 60000); 
     if (diff < 60) return `${diff}m`;
     const hours = Math.floor(diff / 60);
     if (hours < 24) return `${hours}h`;
@@ -142,7 +138,7 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                   <Zap className="w-5 h-5 text-white animate-pulse" />
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-white leading-tight">Operação #198</h2>
+                  <h2 className="text-lg font-bold text-white leading-tight">DETALHES DO ATENDIMENTO #198</h2>
                   <p className="text-xs text-amber-400 font-mono tracking-wider">{editFormData.taskId}</p>
                 </div>
               </div>
@@ -152,10 +148,10 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
             </div>
 
             <div className="p-4 md:p-6 overflow-y-auto space-y-6 bg-white flex-1">
-              {/* Identificação */}
+              {/* Identificação: TASK, INC, HOSTNAME, TAGS */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1"><Hash className="w-3 h-3" /> Task</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1"><Hash className="w-3 h-3" /> TASK</label>
                   <input 
                     type="text" 
                     value={editFormData.taskId} 
@@ -164,7 +160,7 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1"><Tag className="w-3 h-3" /> INC (S.R.)</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1"><Tag className="w-3 h-3" /> INC</label>
                   <input 
                     type="text" 
                     value={editFormData.serviceRequest} 
@@ -173,7 +169,7 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1"><Monitor className="w-3 h-3" /> Hostname</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1"><Monitor className="w-3 h-3" /> HOSTNAME</label>
                   <input 
                     type="text" 
                     value={editFormData.hostname} 
@@ -182,7 +178,7 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase">Tags Especiais</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase">#VLDD# / #NLVDD#</label>
                   <div className="flex gap-2 h-[42px] items-center">
                     <label className="flex items-center gap-1.5 cursor-pointer bg-slate-50 border border-slate-200 px-2 py-2 rounded-lg grow justify-center">
                       <input type="checkbox" checked={editFormData.tagVLDD} onChange={(e) => handleInputChange('tagVLDD', e.target.checked)} className="w-4 h-4 text-purple-600 rounded" />
@@ -196,11 +192,11 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                 </div>
               </div>
 
-              {/* Relatos */}
+              {/* Relatos: DEFEITO, AÇÃO TECNICA */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <AlertCircle className="w-4 h-4 text-amber-500" /> Defeito / Relato Inicial
+                    <AlertCircle className="w-4 h-4 text-amber-500" /> DEFEITO (Relato)
                   </label>
                   <textarea 
                     value={editFormData.description} 
@@ -210,7 +206,7 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-indigo-500" /> Ação Técnica Tiger Team
+                    <Activity className="w-4 h-4 text-indigo-500" /> AÇÃO TÉCNICA
                   </label>
                   <textarea 
                     value={editFormData.analystAction} 
@@ -221,21 +217,21 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                 </div>
               </div>
 
-              {/* Validação Técnica & SIC */}
+              {/* Validação Técnica & SIC: TROCA PEÇA, CARTÃO, SIC */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-4">
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
                     <label className="text-xs font-bold text-slate-500 uppercase mb-3 block flex items-center gap-2">
-                      <Wrench className="w-3 h-3" /> Troca de Peça
+                      <Wrench className="w-3 h-3" /> TROCA DE PEÇA?
                     </label>
                     <div className="flex gap-4 mb-3">
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input type="radio" name="part_replaced_modal" checked={editFormData.partReplaced} onChange={() => handleInputChange('partReplaced', true)} />
-                        <span className="text-sm">Sim</span>
+                        <span className="text-sm">SIM</span>
                       </label>
                       <label className="flex items-center gap-2 cursor-pointer">
                         <input type="radio" name="part_replaced_modal" checked={!editFormData.partReplaced} onChange={() => handleInputChange('partReplaced', false)} />
-                        <span className="text-sm">Não</span>
+                        <span className="text-sm">NÃO</span>
                       </label>
                     </div>
                     {editFormData.partReplaced && (
@@ -243,7 +239,7 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                         type="text" 
                         value={editFormData.partDescription || ''} 
                         onChange={(e) => handleInputChange('partDescription', e.target.value)}
-                        placeholder="Descrição da peça"
+                        placeholder="QUAL PEÇA?"
                         className="w-full px-3 py-2 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-amber-500"
                       />
                     )}
@@ -251,7 +247,7 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
 
                   <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex items-center justify-between">
                     <label className="text-xs font-bold text-blue-700 uppercase flex items-center gap-2">
-                      <CreditCard className="w-4 h-4" /> Teste Cartão?
+                      <CreditCard className="w-4 h-4" /> TESTE COM CARTÃO?
                     </label>
                     <div className="flex gap-3">
                       <label className="flex items-center gap-1.5 cursor-pointer">
@@ -268,50 +264,50 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
 
                 <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
                   <label className="text-xs font-bold text-indigo-700 uppercase mb-4 block flex items-center gap-2">
-                    <Activity className="w-4 h-4" /> Validação SIC
+                    <Activity className="w-4 h-4" /> SIC (VALIDAÇÃO)
                   </label>
                   <div className="grid grid-cols-2 gap-y-3">
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={editFormData.sicWithdrawal} onChange={(e) => handleInputChange('sicWithdrawal', e.target.checked)} className="w-4 h-4 text-indigo-600 rounded" />
-                      <span className="text-sm text-indigo-900">Saques</span>
+                      <span className="text-sm text-indigo-900">SAQUES</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={editFormData.sicDeposit} onChange={(e) => handleInputChange('sicDeposit', e.target.checked)} className="w-4 h-4 text-indigo-600 rounded" />
-                      <span className="text-sm text-indigo-900">Depósitos</span>
+                      <span className="text-sm text-indigo-900">DEPÓSITOS</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={editFormData.sicSensors} onChange={(e) => handleInputChange('sicSensors', e.target.checked)} className="w-4 h-4 text-indigo-600 rounded" />
-                      <span className="text-sm text-indigo-900">Sensoriamento</span>
+                      <span className="text-sm text-indigo-900">SENSORES</span>
                     </label>
                     <label className="flex items-center gap-2 cursor-pointer">
                       <input type="checkbox" checked={editFormData.sicSmartPower} onChange={(e) => handleInputChange('sicSmartPower', e.target.checked)} className="w-4 h-4 text-indigo-600 rounded" />
-                      <span className="text-sm text-indigo-900">SmartPower</span>
+                      <span className="text-sm text-indigo-900">SMARTPOWER</span>
                     </label>
                   </div>
                 </div>
 
                 <div className="bg-emerald-50 p-4 rounded-xl border border-emerald-100">
                   <label className="text-xs font-bold text-emerald-700 uppercase mb-4 block flex items-center gap-2">
-                    <User className="w-4 h-4" /> Responsável Local
+                    <User className="w-4 h-4" /> RESPONSÁVEL
                   </label>
                   <div className="space-y-3">
                     <div className="space-y-1">
-                      <span className="text-[10px] text-emerald-600 font-bold uppercase">Nome</span>
+                      <span className="text-[10px] text-emerald-600 font-bold uppercase">NOME</span>
                       <input 
                         type="text" 
                         value={editFormData.clientWitnessName || ''} 
                         onChange={(e) => handleInputChange('clientWitnessName', e.target.value)}
-                        placeholder="Nome do acompanhante"
+                        placeholder="Nome acompanhante"
                         className="w-full px-3 py-2 text-sm bg-white border border-emerald-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
                     <div className="space-y-1">
-                      <span className="text-[10px] text-emerald-600 font-bold uppercase">Matrícula</span>
+                      <span className="text-[10px] text-emerald-600 font-bold uppercase">MATRÍCULA</span>
                       <input 
                         type="text" 
                         value={editFormData.clientWitnessId || ''} 
                         onChange={(e) => handleInputChange('clientWitnessId', e.target.value)}
-                        placeholder="ID / Matrícula"
+                        placeholder="Matrícula"
                         className="w-full px-3 py-2 text-sm bg-white border border-emerald-200 rounded-lg outline-none focus:ring-2 focus:ring-emerald-500"
                       />
                     </div>
@@ -323,14 +319,14 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
               <div className="bg-slate-800 rounded-2xl p-4 md:p-6 text-white relative shadow-inner">
                 <div className="flex justify-between items-center mb-4">
                   <label className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
-                    <FileText className="w-4 h-4" /> Resumo da Missão Tiger Team
+                    <FileText className="w-4 h-4" /> RESUMO FINAL
                   </label>
                   <button 
                     onClick={handleCopySummary} 
                     className={`flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${copied ? 'bg-emerald-500 text-white' : 'bg-slate-700 hover:bg-slate-600 text-white border border-slate-600'}`}
                   >
                     {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                    {copied ? 'Copiado' : 'Copiar Resumo'}
+                    {copied ? 'Copiado' : 'COPIAR RESUMO'}
                   </button>
                 </div>
                 <textarea 
@@ -343,19 +339,19 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
             </div>
 
             <div className="p-4 bg-slate-50 border-t border-slate-200 flex flex-wrap justify-end gap-3 pb-10 sm:pb-4">
-              <button onClick={() => setSelectedTicket(null)} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-800">Descartar Alterações</button>
+              <button onClick={() => setSelectedTicket(null)} className="px-5 py-2.5 text-sm font-bold text-slate-500 hover:text-slate-800">DESCARTAR</button>
               <button onClick={() => handleSave(false)} className="px-6 py-2.5 bg-slate-900 text-white rounded-xl text-sm font-bold shadow-lg flex items-center gap-2 hover:bg-slate-800 transition-colors">
-                <Save className="w-4 h-4" /> Salvar Andamento
+                <Save className="w-4 h-4" /> SALVAR ANDAMENTO
               </button>
               <button onClick={() => handleSave(true)} className="px-8 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-bold shadow-lg shadow-amber-200 flex items-center gap-2 hover:bg-amber-600 transition-colors">
-                <CheckCircle2 className="w-4 h-4" /> Finalizar e Validar Missão
+                <CheckCircle2 className="w-4 h-4" /> FINALIZAR MISSÃO
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Hero Header */}
+      {/* Restante do Hero Header, Tabs e Lista permanecem iguais mas com o botão Chevron funcionando */}
       <div className="bg-slate-900 rounded-2xl p-6 md:p-8 border border-amber-500/30 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 p-4 opacity-10">
             <Zap className="w-48 h-48 text-amber-500" />
@@ -387,7 +383,6 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
         </div>
       </div>
 
-      {/* Tabs Selector */}
       <div className="flex bg-slate-200/50 p-1 rounded-xl w-fit">
         <button 
           onClick={() => setActiveTab('active')}
@@ -403,7 +398,6 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
         </button>
       </div>
 
-      {/* Mission List */}
       <div className="grid grid-cols-1 gap-4">
         <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-2">
             {activeTab === 'active' ? (
@@ -487,7 +481,6 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
         )}
       </div>
       
-      {/* Footer Info */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex items-center gap-3">
             <div className="bg-amber-500 text-white p-2 rounded-lg">
