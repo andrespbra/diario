@@ -57,7 +57,6 @@ export const NewTicketForm: React.FC<NewTicketFormProps> = ({ onSubmit, currentU
   const [summaryText, setSummaryText] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // Atualiza o horário de início assim que o analista começa a registrar (montagem do form)
   useEffect(() => {
     setFormData(prev => ({ ...prev, supportStartTime: getCurrentDateTime() }));
   }, []);
@@ -107,11 +106,9 @@ Final:  ${end}
 
   const handleAnalyze = async () => {
     if (!formData.description) return;
-    
     setIsAnalyzing(true);
     const context = `Assunto: ${formData.subject}. Descrição: ${formData.description}`;
     const result = await analyzeTicketProblem(context);
-    
     setAiSuggestion({
       solution: result.suggestedSolution,
       priority: result.recommendedPriority,
@@ -126,11 +123,21 @@ Final:  ${end}
     const isEscalatedFinal = formData.isTigerTeam || formData.isEscalated || (aiSuggestion ? aiSuggestion.escalated : false);
     const priorityFinal = formData.isTigerTeam ? TicketPriority.CRITICAL : (isEscalatedFinal ? TicketPriority.CRITICAL : (aiSuggestion ? aiSuggestion.priority : TicketPriority.MEDIUM));
     
+    // LÓGICA DE STATUS REFINADA:
+    // Se for Tiger Team, entra como "Em Andamento" por padrão para acompanhamento.
+    // Se não for Tiger Team, usa a lógica de preenchimento de horário final.
+    let initialStatus = TicketStatus.OPEN;
+    if (formData.isTigerTeam) {
+        initialStatus = TicketStatus.IN_PROGRESS;
+    } else if (formData.supportEndTime) {
+        initialStatus = TicketStatus.RESOLVED;
+    }
+
     const newTicket: Ticket = {
       id: Math.random().toString(36).substr(2, 9),
       userId: currentUser.id,
       ...formData,
-      status: formData.supportEndTime ? TicketStatus.RESOLVED : TicketStatus.OPEN,
+      status: initialStatus,
       priority: priorityFinal,
       isEscalated: !!isEscalatedFinal,
       isTigerTeam: !!formData.isTigerTeam,
@@ -192,7 +199,6 @@ Final:  ${end}
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-8">
-          
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
             <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
               <User className="w-4 h-4" /> Dados do Analista
@@ -293,7 +299,7 @@ Final:  ${end}
             </div>
           </div>
 
-           <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
+          <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
             <h3 className="text-sm font-semibold text-orange-700 uppercase tracking-wider mb-4 flex items-center gap-2">
               <Users className="w-4 h-4" /> Acompanhamento Local
             </h3>
@@ -361,7 +367,6 @@ Final:  ${end}
                   ))}
                 </select>
              </div>
-
              <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                   <Zap className="w-4 h-4 text-amber-500" /> Nível Crítico
@@ -378,7 +383,6 @@ Final:  ${end}
                             <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${formData.isTigerTeam ? 'translate-x-3' : 'translate-x-0'}`} />
                         </div>
                     </div>
-
                     <div 
                         onClick={() => handleChange('isEscalated', !formData.isEscalated)}
                         className={`cursor-pointer w-full px-3 py-2 rounded-lg border flex items-center justify-between transition-colors ${formData.isEscalated ? 'bg-red-50 border-red-300' : 'bg-white border-gray-200 hover:border-gray-300'}`}
@@ -399,7 +403,6 @@ Final:  ${end}
               <CheckSquare className="w-4 h-4" /> Validadores Técnicos
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
-              
               <div className="flex flex-col gap-3">
                 <label className="flex items-center gap-2 cursor-pointer group">
                   <input 
@@ -429,7 +432,6 @@ Final:  ${end}
                   <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-700 transition-colors">Ocorreu Entintamento</span>
                 </label>
               </div>
-
                <div className="flex flex-col gap-3">
                 <label className="flex items-center gap-2 cursor-pointer group">
                   <input 
@@ -450,7 +452,6 @@ Final:  ${end}
                   <span className="text-sm font-bold text-gray-700 group-hover:text-purple-700 transition-colors">#NLVDD#</span>
                 </label>
               </div>
-
               <div className="lg:col-span-2 bg-white p-4 rounded-lg border border-indigo-200 shadow-sm">
                  <label className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-2">
                     <Wrench className="w-4 h-4 text-gray-400" />
@@ -478,7 +479,6 @@ Final:  ${end}
                       <span className="text-sm text-gray-700">Não</span>
                     </label>
                  </div>
-                 
                  {formData.partReplaced && (
                     <div className="animate-in fade-in slide-in-from-top-2 duration-200">
                       <input 
@@ -522,7 +522,6 @@ Final:  ${end}
                 placeholder="Descreva o erro, sintomas e o que o cliente relatou..."
               />
             </div>
-
             <div className="space-y-2">
               <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                 <Clock className="w-4 h-4 text-gray-400" />

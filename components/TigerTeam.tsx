@@ -23,11 +23,15 @@ export const TigerTeam: React.FC<TigerTeamProps> = ({ tickets, onResolve }) => {
   const getStatusBadge = (status: TicketStatus) => {
     switch(status) {
       case TicketStatus.RESOLVED: 
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200">Resolvido</span>;
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800 border border-green-200">Resolvido</span>;
       case TicketStatus.CLOSED: 
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200">Fechado</span>;
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-800 border border-gray-200">Fechado</span>;
+      case TicketStatus.OPEN:
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-800 border border-yellow-200">Aberto</span>;
+      case TicketStatus.IN_PROGRESS:
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">Em Andamento</span>;
       default: 
-        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200">{status}</span>;
+        return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">{status}</span>;
     }
   };
 
@@ -81,7 +85,6 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
     }
   }, [editFormData]);
 
-  // Reforçado o filtro usando !! para conversão booleana segura
   const allTigerTickets = tickets.filter(t => !!t.isTigerTeam);
 
   const activeMissions = allTigerTickets.filter(t => 
@@ -129,7 +132,6 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
 
   return (
     <div className="space-y-6 animate-in zoom-in-95 duration-500">
-      {/* Detail Modal */}
       {selectedTicket && editFormData && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center sm:p-4 bg-black/70 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white sm:rounded-2xl rounded-t-2xl shadow-2xl w-full max-w-5xl h-[95vh] sm:h-auto sm:max-h-[90vh] flex flex-col transition-all overflow-hidden border border-amber-500/20">
@@ -149,7 +151,6 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
             </div>
 
             <div className="p-4 md:p-6 overflow-y-auto space-y-6 bg-white flex-1">
-              {/* Identificação: TASK, INC, HOSTNAME, N SERIE, TAGS */}
               <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1"><Hash className="w-3 h-3" /> TASK</label>
@@ -202,7 +203,6 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                 </div>
               </div>
 
-              {/* Relatos: DEFEITO, AÇÃO TECNICA */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
@@ -227,7 +227,6 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                 </div>
               </div>
 
-              {/* Validação Técnica & SIC: TROCA PEÇA, CARTÃO, SIC */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <div className="space-y-4">
                   <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
@@ -265,6 +264,7 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                         <span className="text-xs font-bold text-blue-900">SIM</span>
                       </label>
                       <label className="flex items-center gap-1.5 cursor-pointer">
+                        {/* Fix: Changed 'card_test_modal' to 'testWithCard' to match the Ticket interface keys */}
                         <input type="radio" name="card_test_modal" checked={!editFormData.testWithCard} onChange={() => handleInputChange('testWithCard', false)} />
                         <span className="text-xs font-bold text-blue-900">NÃO</span>
                       </label>
@@ -325,7 +325,6 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                 </div>
               </div>
 
-              {/* Resumo */}
               <div className="bg-slate-800 rounded-2xl p-4 md:p-6 text-white relative shadow-inner">
                 <div className="flex justify-between items-center mb-4">
                   <label className="text-xs font-bold uppercase tracking-widest text-slate-400 flex items-center gap-2">
@@ -361,12 +360,10 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
         </div>
       )}
 
-      {/* Hero Header, Tabs e Lista permanecem iguais */}
       <div className="bg-slate-900 rounded-2xl p-6 md:p-8 border border-amber-500/30 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 p-4 opacity-10">
             <Zap className="w-48 h-48 text-amber-500" />
         </div>
-        
         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="space-y-2">
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/50 text-amber-500 text-xs font-bold uppercase tracking-widest">
@@ -379,7 +376,6 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                 Esquadrão especializado para atendimento de alta complexidade e incidentes críticos.
             </p>
           </div>
-          
           <div className="flex gap-4">
             <div className="bg-slate-800/50 backdrop-blur p-4 rounded-xl border border-slate-700 text-center min-w-[100px]">
                 <p className="text-[10px] text-slate-500 font-bold uppercase">Ativos</p>
@@ -416,7 +412,6 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
               <><Trophy className="w-4 h-4 text-amber-600" /> Objetivos Alcançados</>
             )}
         </h2>
-        
         {displayTickets.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 bg-white rounded-2xl border-2 border-dashed border-slate-200">
                 {activeTab === 'active' ? (
@@ -432,7 +427,6 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
             displayTickets.map((ticket) => (
                 <div key={ticket.id} className="group relative bg-white border border-amber-500/30 rounded-xl overflow-hidden transition-all shadow-sm hover:shadow-xl">
                     <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-amber-500"></div>
-                    
                     <div className="p-4 md:p-6 flex flex-col md:flex-row gap-4 md:items-center">
                         <div className="flex-1 space-y-3">
                             <div className="flex flex-wrap items-center gap-2">
@@ -442,18 +436,15 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                                 <span className="text-xs font-bold text-amber-600 flex items-center gap-1">
                                     <Zap className="w-3 h-3 animate-pulse" /> TIGER TEAM #198
                                 </span>
-                                {activeTab === 'active' ? (
-                                  <span className="ml-auto md:ml-0 flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
+                                <div className="ml-auto md:ml-0">
+                                    {getStatusBadge(ticket.status)}
+                                </div>
+                                {activeTab === 'active' && (
+                                  <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 uppercase">
                                       <Clock className="w-3 h-3" /> {formatTimeOpen(ticket.createdAt)} EM ABERTO
                                   </span>
-                                ) : (
-                                  <div className="ml-auto md:ml-0 flex items-center gap-2">
-                                    {getStatusBadge(ticket.status)}
-                                    <span className="text-[10px] font-bold text-slate-400 uppercase">Finalizado</span>
-                                  </div>
                                 )}
                             </div>
-                            
                             <div>
                                 <h3 className="text-lg font-bold text-slate-900 group-hover:text-amber-600 transition-colors">
                                     {ticket.customerName}
@@ -467,12 +458,10 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                                     </span>
                                 </div>
                             </div>
-
                             <p className="text-sm text-slate-600 line-clamp-2 italic border-l-2 border-slate-100 pl-3">
                                 "{ticket.description}"
                             </p>
                         </div>
-                        
                         <div className="shrink-0 flex items-center gap-3">
                             <div className="text-right hidden md:block">
                                 <p className="text-[10px] font-bold text-slate-400 uppercase">Analista</p>
@@ -490,7 +479,6 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
             ))
         )}
       </div>
-      
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex items-center gap-3">
             <div className="bg-amber-500 text-white p-2 rounded-lg">

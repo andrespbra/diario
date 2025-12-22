@@ -43,36 +43,38 @@ export const HistoryList: React.FC<HistoryListProps> = ({ tickets, onDelete, onU
   }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
   const getStatusBadge = (status: TicketStatus, isEscalated: boolean, isTigerTeam: boolean) => {
-      if (isTigerTeam) {
-        return (
-          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200" title="Atendimento Tiger Team #198">
-              <Zap className="w-3 h-3 mr-1 animate-pulse" />
-              Tiger Team
-          </span>
-        );
-      }
+      const renderStatusLabel = (s: TicketStatus) => {
+          switch(s) {
+              case TicketStatus.OPEN: 
+                return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-yellow-100 text-yellow-800 border border-yellow-200">Aberto</span>;
+              case TicketStatus.IN_PROGRESS: 
+                return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800 border border-blue-200">Em Andamento</span>;
+              case TicketStatus.RESOLVED: 
+                return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-800 border border-green-200">Resolvido</span>;
+              case TicketStatus.CLOSED: 
+                return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-800 border border-gray-200">Fechado</span>;
+              default: 
+                return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-gray-100 text-gray-800">{s}</span>;
+          }
+      };
 
-      if (isEscalated && status !== TicketStatus.RESOLVED && status !== TicketStatus.CLOSED) {
-          return (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200" title="Este chamado foi escalonado">
-                  <AlertOctagon className="w-3 h-3 mr-1" />
-                  Escalonado
-              </span>
-          );
-      }
-
-      switch(status) {
-          case TicketStatus.OPEN: 
-            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 border border-yellow-200" title="Chamado aberto aguardando resolução">Aberto</span>;
-          case TicketStatus.IN_PROGRESS: 
-            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 border border-blue-200" title="Chamado em atendimento">Em Andamento</span>;
-          case TicketStatus.RESOLVED: 
-            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 border border-green-200" title="Chamado resolvido com sucesso">Resolvido</span>;
-          case TicketStatus.CLOSED: 
-            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800 border border-gray-200" title="Chamado finalizado">Fechado</span>;
-          default: 
-            return <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-800">{status}</span>;
-      }
+      return (
+          <div className="flex flex-col gap-1.5 items-start">
+              {isTigerTeam && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black bg-amber-500 text-white border border-amber-600 shadow-sm" title="Atendimento Tiger Team #198">
+                      <Zap className="w-2.5 h-2.5 mr-1" />
+                      TIGER TEAM
+                  </span>
+              )}
+              {isEscalated && status !== TicketStatus.RESOLVED && status !== TicketStatus.CLOSED && !isTigerTeam && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-600 text-white border border-red-700" title="Este chamado foi escalonado">
+                      <AlertOctagon className="w-2.5 h-2.5 mr-1" />
+                      ESCALONADO
+                  </span>
+              )}
+              {renderStatusLabel(status)}
+          </div>
+      );
   };
 
   const handleCopyTicketDetails = (ticket: Ticket) => {
@@ -176,12 +178,7 @@ ${ticket.analystAction}`;
                          filteredTickets.map((ticket) => (
                              <tr key={ticket.id} className="hover:bg-gray-50 transition-colors group">
                                  <td className="px-6 py-4 align-top">
-                                     <div className="flex flex-col gap-2 items-start">
-                                         {getStatusBadge(ticket.status, ticket.isEscalated, ticket.isTigerTeam)}
-                                         {ticket.priority === TicketPriority.CRITICAL && !ticket.isEscalated && !ticket.isTigerTeam && (
-                                            <span className="text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100" title="Prioridade Crítica">CRÍTICO</span>
-                                         )}
-                                     </div>
+                                     {getStatusBadge(ticket.status, ticket.isEscalated, ticket.isTigerTeam)}
                                  </td>
                                  <td className="px-6 py-4 align-top">
                                      <div className="flex flex-col">
