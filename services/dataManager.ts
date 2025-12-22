@@ -218,7 +218,7 @@ export const DataManager = {
         status: t.status,
         priority: t.priority,
         isEscalated: !!t.is_escalated,
-        isTigerTeam: !!t.is_tiger_team, // Reforçado conversão booleana
+        isTigerTeam: !!t.is_tiger_team,
         createdAt: new Date(t.created_at),
     }));
   },
@@ -251,7 +251,7 @@ export const DataManager = {
         status: ticket.status,
         priority: ticket.priority,
         is_escalated: !!ticket.isEscalated,
-        is_tiger_team: !!ticket.isTigerTeam, // Mapeamento correto
+        is_tiger_team: !!ticket.isTigerTeam,
         ai_suggested_solution: ticket.aiSuggestedSolution
       };
 
@@ -261,14 +261,19 @@ export const DataManager = {
 
   updateTicket: async (updatedTicket: Ticket): Promise<void> => {
       if (!isSupabaseConfigured) return;
+      if (!updatedTicket.id) throw new Error("ID do chamado ausente para atualização.");
+
       const dbPayload = {
         task_id: updatedTicket.taskId,
         service_request: updatedTicket.serviceRequest,
         hostname: updatedTicket.hostname,
         n_serie: updatedTicket.serialNumber,
         customer_name: updatedTicket.customerName,
+        location_name: updatedTicket.locationName,
         description: updatedTicket.description,
         analyst_action: updatedTicket.analystAction,
+        support_start_time: updatedTicket.supportStartTime,
+        support_end_time: updatedTicket.supportEndTime,
         part_replaced: !!updatedTicket.partReplaced,
         part_description: updatedTicket.partDescription,
         tag_vldd: !!updatedTicket.tagVLDD,
@@ -281,8 +286,9 @@ export const DataManager = {
         client_witness_name: updatedTicket.clientWitnessName,
         client_witness_id: updatedTicket.clientWitnessId,
         status: updatedTicket.status,
-        is_tiger_team: !!updatedTicket.isTigerTeam, // Manter o status Tiger Team na atualização
-        validated_at: new Date().toISOString(),
+        is_escalated: !!updatedTicket.isEscalated,
+        is_tiger_team: !!updatedTicket.isTigerTeam,
+        validated_at: updatedTicket.validatedAt ? updatedTicket.validatedAt.toISOString() : new Date().toISOString(),
       };
 
       const { error } = await supabase

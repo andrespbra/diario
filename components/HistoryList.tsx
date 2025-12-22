@@ -89,7 +89,8 @@ ${ticket.analystAction}`;
     if (window.confirm(`Deseja encerrar o chamado ${ticket.taskId || 'selecionado'}?`)) {
         onUpdate({
             ...ticket,
-            status: TicketStatus.CLOSED
+            status: TicketStatus.CLOSED,
+            supportEndTime: ticket.supportEndTime || new Date().toISOString().slice(0, 16)
         });
     }
   };
