@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { TicketPriority, TicketStatus, Ticket, UserProfile } from '../types';
 import { analyzeTicketProblem } from '../services/geminiService';
-import { Sparkles, Save, Loader2, User, FileText, MapPin, Hash, Monitor, Clock, Tag, Briefcase, Wrench, CheckSquare, Copy, Check, Users, AlertOctagon, Zap } from 'lucide-react';
+import { Sparkles, Save, Loader2, User, FileText, MapPin, Hash, Monitor, Clock, Tag, Briefcase, Wrench, CheckSquare, Copy, Check, Users, AlertOctagon, Zap, Barcode } from 'lucide-react';
 
 interface NewTicketFormProps {
   onSubmit: (ticket: Ticket) => void;
@@ -32,6 +33,7 @@ export const NewTicketForm: React.FC<NewTicketFormProps> = ({ onSubmit, currentU
     taskId: '',
     serviceRequest: '',
     hostname: '',
+    serialNumber: '',
     subject: SUBJECT_OPTIONS[0],
     description: '',
     analystAction: '',
@@ -63,7 +65,7 @@ export const NewTicketForm: React.FC<NewTicketFormProps> = ({ onSubmit, currentU
 ------------------------------------------
 ANALISTA: ${formData.analystName}
 CLIENTE/LOCAL: ${formData.locationName} | CONTATO: ${formData.customerName}
-HOSTNAME: ${formData.hostname}
+HOSTNAME: ${formData.hostname} | N. SÉRIE: ${formData.serialNumber || 'N/A'}
 TASK: ${formData.taskId} | INC: ${formData.serviceRequest}
 ASSUNTO: ${formData.subject}
 TIGER TEAM: ${formData.isTigerTeam ? 'SIM (#198)' : 'NÃO'}
@@ -115,15 +117,14 @@ Final:  ${end}
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Logic: If it is Tiger Team, it is automatically Escalated and Critical
     const isEscalatedFinal = formData.isTigerTeam || formData.isEscalated || (aiSuggestion ? aiSuggestion.escalated : false);
     const priorityFinal = formData.isTigerTeam ? TicketPriority.CRITICAL : (isEscalatedFinal ? TicketPriority.CRITICAL : (aiSuggestion ? aiSuggestion.priority : TicketPriority.MEDIUM));
     
     const newTicket: Ticket = {
       id: Math.random().toString(36).substr(2, 9),
-      userId: currentUser.id, // Link ticket to the logged-in user
+      userId: currentUser.id,
       ...formData,
-      status: formData.supportEndTime ? TicketStatus.RESOLVED : TicketStatus.OPEN, // Auto-resolve if end time provided
+      status: formData.supportEndTime ? TicketStatus.RESOLVED : TicketStatus.OPEN,
       priority: priorityFinal,
       isEscalated: isEscalatedFinal,
       isTigerTeam: formData.isTigerTeam,
@@ -131,7 +132,6 @@ Final:  ${end}
       createdAt: new Date(),
     };
     onSubmit(newTicket);
-    // Reset core fields
     setFormData(prev => ({
       ...prev,
       taskId: '',
@@ -139,6 +139,7 @@ Final:  ${end}
       description: '',
       analystAction: '',
       hostname: '',
+      serialNumber: '',
       partReplaced: false,
       partDescription: '',
       supportEndTime: '',
@@ -178,7 +179,6 @@ Final:  ${end}
 
         <form onSubmit={handleSubmit} className="p-6 space-y-8">
           
-          {/* Section 1: Analyst & Time */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
             <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
               <User className="w-4 h-4" /> Dados do Analista
@@ -216,13 +216,12 @@ Final:  ${end}
             </div>
           </div>
 
-          {/* Section 2: Equipment & Location */}
           <div>
             <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
               <MapPin className="w-4 h-4" /> Local e Equipamento
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="space-y-2 lg:col-span-2">
+              <div className="space-y-2 lg:col-span-1">
                 <label className="text-sm font-medium text-gray-700">Nome do Local / Cliente</label>
                 <input
                   required
@@ -230,7 +229,7 @@ Final:  ${end}
                   value={formData.locationName}
                   onChange={(e) => handleChange('locationName', e.target.value)}
                   className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none"
-                  placeholder="Ex: Loja Centro - Matriz"
+                  placeholder="Ex: Loja Centro"
                 />
               </div>
               <div className="space-y-2">
@@ -248,6 +247,19 @@ Final:  ${end}
                 </div>
               </div>
               <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">N. Série</label>
+                <div className="relative">
+                  <Barcode className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                  <input
+                    type="text"
+                    value={formData.serialNumber}
+                    onChange={(e) => handleChange('serialNumber', e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="S/N: 12345"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Cliente (Solicitante)</label>
                 <input
                   required
@@ -261,7 +273,6 @@ Final:  ${end}
             </div>
           </div>
 
-           {/* New Section: Witness Info */}
            <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
             <h3 className="text-sm font-semibold text-orange-700 uppercase tracking-wider mb-4 flex items-center gap-2">
               <Users className="w-4 h-4" /> Acompanhamento Local
@@ -290,7 +301,6 @@ Final:  ${end}
             </div>
           </div>
 
-          {/* Section 3: Classification */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
              <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
@@ -332,13 +342,11 @@ Final:  ${end}
                 </select>
              </div>
 
-             {/* TIGER TEAM & Escalation Toggles */}
              <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                   <Zap className="w-4 h-4 text-amber-500" /> Nível Crítico
                 </label>
                 <div className="flex flex-col gap-2">
-                    {/* #198 TIGER TEAM Toggle */}
                     <div 
                         onClick={() => handleChange('isTigerTeam', !formData.isTigerTeam)}
                         className={`cursor-pointer w-full px-3 py-2 rounded-lg border flex items-center justify-between transition-colors ${formData.isTigerTeam ? 'bg-amber-50 border-amber-300 ring-1 ring-amber-200' : 'bg-white border-gray-200 hover:border-gray-300'}`}
@@ -351,7 +359,6 @@ Final:  ${end}
                         </div>
                     </div>
 
-                    {/* Standard Escalation Toggle */}
                     <div 
                         onClick={() => handleChange('isEscalated', !formData.isEscalated)}
                         className={`cursor-pointer w-full px-3 py-2 rounded-lg border flex items-center justify-between transition-colors ${formData.isEscalated ? 'bg-red-50 border-red-300' : 'bg-white border-gray-200 hover:border-gray-300'}`}
@@ -367,14 +374,12 @@ Final:  ${end}
              </div>
           </div>
 
-          {/* Section 4: Technical Checklists */}
            <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
             <h3 className="text-sm font-semibold text-indigo-700 uppercase tracking-wider mb-4 flex items-center gap-2">
               <CheckSquare className="w-4 h-4" /> Validadores Técnicos
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
               
-              {/* Checkboxes Group 1 */}
               <div className="flex flex-col gap-3">
                 <label className="flex items-center gap-2 cursor-pointer group">
                   <input 
@@ -405,7 +410,6 @@ Final:  ${end}
                 </label>
               </div>
 
-               {/* Checkboxes Group 2 - Special Tags */}
                <div className="flex flex-col gap-3">
                 <label className="flex items-center gap-2 cursor-pointer group">
                   <input 
@@ -427,7 +431,6 @@ Final:  ${end}
                 </label>
               </div>
 
-              {/* Parts Replacement Logic */}
               <div className="lg:col-span-2 bg-white p-4 rounded-lg border border-indigo-200 shadow-sm">
                  <label className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-2">
                     <Wrench className="w-4 h-4 text-gray-400" />
@@ -473,7 +476,6 @@ Final:  ${end}
 
           <hr className="border-gray-100" />
 
-          {/* Section 5: Details & Actions */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-2">
               <div className="flex justify-between items-center">
@@ -517,7 +519,6 @@ Final:  ${end}
             </div>
           </div>
 
-          {/* AI Analysis Result Card */}
           {aiSuggestion && (
             <div className={`rounded-xl p-4 border ${aiSuggestion.escalated ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'} animate-in fade-in zoom-in-95 duration-300`}>
               <div className="flex items-start gap-3">
@@ -546,7 +547,6 @@ Final:  ${end}
             </div>
           )}
 
-          {/* Section 6: Summary & Actions */}
           <div className="bg-gray-800 rounded-xl p-4 text-gray-200">
              <div className="flex justify-between items-center mb-3">
                <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400">Resumo para Cópia</h3>

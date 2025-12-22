@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Ticket, TicketStatus } from '../types';
-import { AlertTriangle, Clock, MapPin, Eye, X, CheckCircle2, User, Wrench, Hash, Copy, Check, Save, CreditCard, Activity, Monitor, XCircle } from 'lucide-react';
+import { AlertTriangle, Clock, MapPin, Eye, X, CheckCircle2, User, Wrench, Hash, Copy, Check, Save, CreditCard, Activity, Monitor, XCircle, Barcode } from 'lucide-react';
 
 interface EscalationListProps {
   tickets: Ticket[];
@@ -9,7 +9,6 @@ interface EscalationListProps {
 }
 
 export const EscalationList: React.FC<EscalationListProps> = ({ tickets, onResolve }) => {
-  // Filtro: Apenas chamados escalonados que NÃO são Tiger Team (separação de abas)
   const escalatedTickets = tickets.filter(t => 
     t.isEscalated && 
     !t.isTigerTeam && 
@@ -23,7 +22,6 @@ export const EscalationList: React.FC<EscalationListProps> = ({ tickets, onResol
   const [copied, setCopied] = useState(false);
   const [copyFeedbackId, setCopyFeedbackId] = useState<string | null>(null);
 
-  // Restante do componente permanece igual...
   useEffect(() => {
     if (selectedTicket) {
       setEditFormData({ 
@@ -42,7 +40,7 @@ export const EscalationList: React.FC<EscalationListProps> = ({ tickets, onResol
       const summary = `=== ESCALADA / VALIDAÇÃO ===
 ------------------------------------------
 TASK: ${editFormData.taskId} | INC: ${editFormData.serviceRequest}
-HOSTNAME: ${editFormData.hostname}
+HOSTNAME: ${editFormData.hostname} | N. SÉRIE: ${editFormData.serialNumber || 'N/A'}
 CLIENTE: ${editFormData.customerName}
 TAGS: ${editFormData.tagVLDD ? '#VLDD#' : ''} ${editFormData.tagNLVDD ? '#NLVDD#' : ''}
 
@@ -121,7 +119,7 @@ Matrícula: ${editFormData.clientWitnessId || 'N/A'}
   };
 
   const handleCopyTicketDetails = (ticket: Ticket) => {
-    const textToCopy = `DETALHES DO CHAMADO\n-------------------\nTASK: ${ticket.taskId || 'N/A'}\nCLIENTE: ${ticket.customerName}\nLOCAL: ${ticket.locationName}\n-------------------\nDEFEITO RECLAMADO:\n${ticket.description}\n\nAÇÃO TÉCNICO:\n${ticket.analystAction}`;
+    const textToCopy = `DETALHES DO CHAMADO\n-------------------\nTASK: ${ticket.taskId || 'N/A'}\nCLIENTE: ${ticket.customerName}\nLOCAL: ${ticket.locationName}\nN. SÉRIE: ${ticket.serialNumber || 'N/A'}\n-------------------\nDEFEITO RECLAMADO:\n${ticket.description}\n\nAÇÃO TÉCNICO:\n${ticket.analystAction}`;
     navigator.clipboard.writeText(textToCopy);
     setCopyFeedbackId(ticket.id);
     setTimeout(() => setCopyFeedbackId(null), 2000);
@@ -161,7 +159,7 @@ Matrícula: ${editFormData.clientWitnessId || 'N/A'}
                 </div>
                 
                 <div className="p-4 md:p-6 overflow-y-auto space-y-4 md:space-y-6 bg-white flex-1">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-4">
                         <div className="space-y-1">
                             <label className="text-[10px] md:text-xs font-bold text-gray-500 uppercase flex items-center gap-1"><Hash className="w-3 h-3" /> Task</label>
                             <input type="text" value={editFormData.taskId} onChange={(e) => handleInputChange('taskId', e.target.value)} className="w-full px-2 py-1.5 md:px-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm" />
@@ -170,11 +168,15 @@ Matrícula: ${editFormData.clientWitnessId || 'N/A'}
                             <label className="text-[10px] md:text-xs font-bold text-gray-500 uppercase flex items-center gap-1"><Hash className="w-3 h-3" /> INC</label>
                             <input type="text" value={editFormData.serviceRequest} onChange={(e) => handleInputChange('serviceRequest', e.target.value)} className="w-full px-2 py-1.5 md:px-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm" />
                         </div>
-                        <div className="space-y-1 col-span-2 md:col-span-1">
+                        <div className="space-y-1">
                             <label className="text-[10px] md:text-xs font-bold text-gray-500 uppercase flex items-center gap-1"><Monitor className="w-3 h-3" /> Hostname</label>
                             <input type="text" value={editFormData.hostname} onChange={(e) => handleInputChange('hostname', e.target.value)} className="w-full px-2 py-1.5 md:px-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm" />
                         </div>
-                        <div className="space-y-1 col-span-2 md:col-span-1">
+                        <div className="space-y-1">
+                            <label className="text-[10px] md:text-xs font-bold text-gray-500 uppercase flex items-center gap-1"><Barcode className="w-3 h-3" /> N. Série</label>
+                            <input type="text" value={editFormData.serialNumber} onChange={(e) => handleInputChange('serialNumber', e.target.value)} className="w-full px-2 py-1.5 md:px-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm" />
+                        </div>
+                        <div className="space-y-1">
                             <label className="text-[10px] md:text-xs font-bold text-gray-500 uppercase flex items-center gap-1"><User className="w-3 h-3" /> Cliente</label>
                             <input type="text" value={editFormData.customerName} onChange={(e) => handleInputChange('customerName', e.target.value)} className="w-full px-2 py-1.5 md:px-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none text-sm" />
                         </div>

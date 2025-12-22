@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { Ticket, TicketStatus, TicketPriority } from '../types';
-import { Search, MapPin, Clock, AlertTriangle, AlertOctagon, Wrench, CheckCircle2, XCircle, ArrowUpRight, Copy, Check, Trash2, Zap } from 'lucide-react';
+import { Search, MapPin, Clock, AlertTriangle, AlertOctagon, Wrench, CheckCircle2, XCircle, ArrowUpRight, Copy, Check, Trash2, Zap, Barcode } from 'lucide-react';
 
 interface HistoryListProps {
   tickets: Ticket[];
@@ -18,6 +18,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({ tickets, onDelete, onU
     const matchesSearch = 
       (ticket.customerName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (ticket.taskId || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (ticket.serialNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (ticket.serviceRequest || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
       (ticket.locationName || '').toLowerCase().includes(searchTerm.toLowerCase());
     
@@ -65,6 +66,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({ tickets, onDelete, onU
 TASK: ${ticket.taskId || 'N/A'}
 CLIENTE: ${ticket.customerName}
 LOCAL: ${ticket.locationName}
+N. SÉRIE: ${ticket.serialNumber || 'N/A'}
 -------------------
 DEFEITO:
 ${ticket.description}
@@ -108,7 +110,7 @@ ${ticket.analystAction}`;
                  <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
                  <input 
                     type="text" 
-                    placeholder="Buscar por task, cliente, local..." 
+                    placeholder="Buscar por task, serie, cliente..." 
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-9 pr-4 py-2 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none w-full sm:w-72 bg-white shadow-sm"
@@ -166,7 +168,11 @@ ${ticket.analystAction}`;
                                      <div className="flex flex-col">
                                          <span className="font-bold text-gray-900 font-mono text-sm">{ticket.taskId}</span>
                                          <span className="text-xs text-gray-500 font-mono">{ticket.serviceRequest}</span>
-                                         <span className="text-[10px] text-gray-400 mt-1">{ticket.hostname}</span>
+                                         <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-1">
+                                             <Barcode className="w-2.5 h-2.5" />
+                                             <span>{ticket.serialNumber || 'S/N'}</span>
+                                         </div>
+                                         <span className="text-[10px] text-gray-400">{ticket.hostname}</span>
                                      </div>
                                  </td>
                                  <td className="px-6 py-4 align-top">

@@ -5,7 +5,7 @@ import {
   Zap, AlertCircle, Clock, ShieldAlert, ChevronRight, 
   MapPin, Monitor, CheckCircle2, Trophy, History, 
   X, User, Wrench, Hash, Copy, Check, Save, 
-  CreditCard, Activity, XCircle, Eye, Tag, FileText
+  CreditCard, Activity, XCircle, Eye, Tag, FileText, Barcode
 } from 'lucide-react';
 
 interface TigerTeamProps {
@@ -51,7 +51,7 @@ export const TigerTeam: React.FC<TigerTeamProps> = ({ tickets, onResolve }) => {
       const summary = `=== OPERAÇÃO TIGER TEAM #198 ===
 ------------------------------------------
 TASK: ${editFormData.taskId} | INC: ${editFormData.serviceRequest}
-HOSTNAME: ${editFormData.hostname}
+HOSTNAME: ${editFormData.hostname} | N. SÉRIE: ${editFormData.serialNumber || 'N/A'}
 CLIENTE: ${editFormData.customerName}
 TAGS: ${editFormData.tagVLDD ? '#VLDD#' : ''} ${editFormData.tagNLVDD ? '#NLVDD#' : ''}
 
@@ -148,8 +148,8 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
             </div>
 
             <div className="p-4 md:p-6 overflow-y-auto space-y-6 bg-white flex-1">
-              {/* Identificação: TASK, INC, HOSTNAME, TAGS */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {/* Identificação: TASK, INC, HOSTNAME, N SERIE, TAGS */}
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1"><Hash className="w-3 h-3" /> TASK</label>
                   <input 
@@ -174,6 +174,15 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                     type="text" 
                     value={editFormData.hostname} 
                     onChange={(e) => handleInputChange('hostname', e.target.value)}
+                    className="w-full font-mono text-sm font-bold text-slate-900 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none" 
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1"><Barcode className="w-3 h-3" /> N. SÉRIE</label>
+                  <input 
+                    type="text" 
+                    value={editFormData.serialNumber} 
+                    onChange={(e) => handleInputChange('serialNumber', e.target.value)}
                     className="w-full font-mono text-sm font-bold text-slate-900 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-amber-500 outline-none" 
                   />
                 </div>

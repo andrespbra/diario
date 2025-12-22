@@ -191,6 +191,7 @@ export const DataManager = {
         taskId: t.task_id,
         serviceRequest: t.service_request,
         hostname: t.hostname,
+        serialNumber: t.n_serie || '', // Adicionado
         subject: t.subject,
         analystName: t.analyst_name,
         supportStartTime: t.support_start_time,
@@ -231,6 +232,7 @@ export const DataManager = {
         task_id: ticket.taskId,
         service_request: ticket.serviceRequest,
         hostname: ticket.hostname,
+        n_serie: ticket.serialNumber, // Adicionado
         subject: ticket.subject,
         analyst_name: ticket.analystName,
         support_start_time: ticket.supportStartTime || null,
@@ -263,6 +265,7 @@ export const DataManager = {
         task_id: updatedTicket.taskId,
         service_request: updatedTicket.serviceRequest,
         hostname: updatedTicket.hostname,
+        n_serie: updatedTicket.serialNumber, // Adicionado
         customer_name: updatedTicket.customerName,
         description: updatedTicket.description,
         analyst_action: updatedTicket.analystAction,

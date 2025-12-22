@@ -36,6 +36,7 @@ export interface Ticket {
   taskId: string;
   serviceRequest: string; // INC / SR
   hostname: string;
+  serialNumber: string; // N. Serie
   subject: string;
   
   // Support Details
