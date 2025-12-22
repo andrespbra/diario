@@ -39,7 +39,7 @@ export const EscalationList: React.FC<EscalationListProps> = ({ tickets, onResol
     if (editFormData) {
       const summary = `=== ESCALADA / VALIDAÇÃO ===
 ------------------------------------------
-TASK: ${editFormData.taskId} | INC: ${editFormData.serviceRequest}
+TASK: ${editFormData.taskId} | INC / RITM: ${editFormData.serviceRequest}
 HOSTNAME: ${editFormData.hostname} | N. SÉRIE: ${editFormData.serialNumber || 'N/A'}
 CLIENTE: ${editFormData.customerName}
 TAGS: ${editFormData.tagVLDD ? '#VLDD#' : ''} ${editFormData.tagNLVDD ? '#NLVDD#' : ''}
@@ -165,7 +165,7 @@ Matrícula: ${editFormData.clientWitnessId || 'N/A'}
                             <input type="text" value={editFormData.taskId} onChange={(e) => handleInputChange('taskId', e.target.value)} className="w-full px-2 py-1.5 md:px-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm" />
                         </div>
                          <div className="space-y-1">
-                            <label className="text-[10px] md:text-xs font-bold text-gray-500 uppercase flex items-center gap-1"><Hash className="w-3 h-3" /> INC</label>
+                            <label className="text-[10px] md:text-xs font-bold text-gray-500 uppercase flex items-center gap-1"><Hash className="w-3 h-3" /> INC / RITM</label>
                             <input type="text" value={editFormData.serviceRequest} onChange={(e) => handleInputChange('serviceRequest', e.target.value)} className="w-full px-2 py-1.5 md:px-3 md:py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none font-mono text-sm" />
                         </div>
                         <div className="space-y-1">

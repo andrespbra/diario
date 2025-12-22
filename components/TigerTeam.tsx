@@ -50,7 +50,7 @@ export const TigerTeam: React.FC<TigerTeamProps> = ({ tickets, onResolve }) => {
     if (editFormData) {
       const summary = `=== OPERAÇÃO TIGER TEAM #198 ===
 ------------------------------------------
-TASK: ${editFormData.taskId} | INC: ${editFormData.serviceRequest}
+TASK: ${editFormData.taskId} | INC / RITM: ${editFormData.serviceRequest}
 HOSTNAME: ${editFormData.hostname} | N. SÉRIE: ${editFormData.serialNumber || 'N/A'}
 CLIENTE: ${editFormData.customerName}
 TAGS: ${editFormData.tagVLDD ? '#VLDD#' : ''} ${editFormData.tagNLVDD ? '#NLVDD#' : ''}
@@ -160,7 +160,7 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1"><Tag className="w-3 h-3" /> INC</label>
+                  <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1"><Tag className="w-3 h-3" /> INC / RITM</label>
                   <input 
                     type="text" 
                     value={editFormData.serviceRequest} 
@@ -360,7 +360,7 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
         </div>
       )}
 
-      {/* Restante do Hero Header, Tabs e Lista permanecem iguais mas com o botão Chevron funcionando */}
+      {/* Hero Header, Tabs e Lista permanecem iguais */}
       <div className="bg-slate-900 rounded-2xl p-6 md:p-8 border border-amber-500/30 shadow-2xl relative overflow-hidden">
         <div className="absolute top-0 right-0 p-4 opacity-10">
             <Zap className="w-48 h-48 text-amber-500" />

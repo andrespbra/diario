@@ -66,7 +66,7 @@ export const NewTicketForm: React.FC<NewTicketFormProps> = ({ onSubmit, currentU
 ANALISTA: ${formData.analystName}
 CLIENTE/LOCAL: ${formData.locationName} | CONTATO: ${formData.customerName}
 HOSTNAME: ${formData.hostname} | N. SÉRIE: ${formData.serialNumber || 'N/A'}
-TASK: ${formData.taskId} | INC: ${formData.serviceRequest}
+TASK: ${formData.taskId} | INC / RITM: ${formData.serviceRequest}
 ASSUNTO: ${formData.subject}
 TIGER TEAM: ${formData.isTigerTeam ? 'SIM (#198)' : 'NÃO'}
 STATUS: ${formData.isEscalated ? 'ESCALONADO (CRÍTICO)' : 'NORMAL'}
@@ -317,14 +317,14 @@ Final:  ${end}
              </div>
              <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-gray-400" /> INC (Chamado Cliente)
+                  <Tag className="w-4 h-4 text-gray-400" /> INC / RITM (Chamado do Cliente)
                 </label>
                 <input
                   type="text"
                   value={formData.serviceRequest}
                   onChange={(e) => handleChange('serviceRequest', e.target.value)}
                   className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none"
-                  placeholder="INC-9999"
+                  placeholder="INC / RITM-9999"
                 />
              </div>
              <div className="space-y-2">
