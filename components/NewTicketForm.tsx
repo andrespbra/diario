@@ -24,11 +24,13 @@ const SUBJECT_OPTIONS = [
 ];
 
 export const NewTicketForm: React.FC<NewTicketFormProps> = ({ onSubmit, currentUser }) => {
+  const getCurrentDateTime = () => new Date().toISOString().slice(0, 16);
+
   const [formData, setFormData] = useState({
     customerName: '',
-    analystName: currentUser.name, // Auto-fill with current user name
+    analystName: currentUser.name,
     locationName: '',
-    supportStartTime: new Date().toISOString().slice(0, 16),
+    supportStartTime: getCurrentDateTime(),
     supportEndTime: '', 
     taskId: '',
     serviceRequest: '',
@@ -55,7 +57,11 @@ export const NewTicketForm: React.FC<NewTicketFormProps> = ({ onSubmit, currentU
   const [summaryText, setSummaryText] = useState('');
   const [copied, setCopied] = useState(false);
 
-  // Auto-generate summary whenever form data changes
+  // Atualiza o horário de início assim que o analista começa a registrar (montagem do form)
+  useEffect(() => {
+    setFormData(prev => ({ ...prev, supportStartTime: getCurrentDateTime() }));
+  }, []);
+
   useEffect(() => {
     const generateSummary = () => {
       const start = formData.supportStartTime ? new Date(formData.supportStartTime).toLocaleString() : 'N/A';
@@ -120,7 +126,6 @@ Final:  ${end}
     const isEscalatedFinal = formData.isTigerTeam || formData.isEscalated || (aiSuggestion ? aiSuggestion.escalated : false);
     const priorityFinal = formData.isTigerTeam ? TicketPriority.CRITICAL : (isEscalatedFinal ? TicketPriority.CRITICAL : (aiSuggestion ? aiSuggestion.priority : TicketPriority.MEDIUM));
     
-    // Explicitamente forçando os tipos booleanos para evitar erros de casting
     const newTicket: Ticket = {
       id: Math.random().toString(36).substr(2, 9),
       userId: currentUser.id,
@@ -128,32 +133,36 @@ Final:  ${end}
       status: formData.supportEndTime ? TicketStatus.RESOLVED : TicketStatus.OPEN,
       priority: priorityFinal,
       isEscalated: !!isEscalatedFinal,
-      isTigerTeam: !!formData.isTigerTeam, // Atribuição reforçada
+      isTigerTeam: !!formData.isTigerTeam,
       aiSuggestedSolution: aiSuggestion?.solution,
       createdAt: new Date(),
     };
     onSubmit(newTicket);
-    setFormData(prev => ({
-      ...prev,
+    setFormData({
+      customerName: '',
+      analystName: currentUser.name,
+      locationName: '',
+      supportStartTime: getCurrentDateTime(),
+      supportEndTime: '', 
       taskId: '',
       serviceRequest: '',
-      description: '',
-      analystAction: '',
       hostname: '',
       serialNumber: '',
-      partReplaced: false,
-      partDescription: '',
-      supportEndTime: '',
+      subject: SUBJECT_OPTIONS[0],
+      description: '',
+      analystAction: '',
       isDueCall: false,
       usedACFS: false,
       hasInkStaining: false,
+      partReplaced: false,
+      partDescription: '',
       tagVLDD: false,
       tagNLVDD: false,
       clientWitnessName: '',
       clientWitnessId: '',
       isEscalated: false,
       isTigerTeam: false
-    }));
+    });
     setAiSuggestion(null);
   };
 
@@ -165,6 +174,10 @@ Final:  ${end}
     navigator.clipboard.writeText(summaryText);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const setTimeNow = (field: 'supportStartTime' | 'supportEndTime') => {
+    handleChange(field, getCurrentDateTime());
   };
 
   return (
@@ -196,7 +209,10 @@ Final:  ${end}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Início do Suporte</label>
+                <div className="flex justify-between items-center">
+                    <label className="text-sm font-medium text-gray-700">Início do Suporte</label>
+                    <button type="button" onClick={() => setTimeNow('supportStartTime')} className="text-[10px] text-indigo-600 font-bold hover:underline">AGORA</button>
+                </div>
                 <input
                   required
                   type="datetime-local"
@@ -206,7 +222,10 @@ Final:  ${end}
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Final do Suporte</label>
+                <div className="flex justify-between items-center">
+                    <label className="text-sm font-medium text-gray-700">Final do Suporte</label>
+                    <button type="button" onClick={() => setTimeNow('supportEndTime')} className="text-[10px] text-indigo-600 font-bold hover:underline">AGORA</button>
+                </div>
                 <input
                   type="datetime-local"
                   value={formData.supportEndTime}

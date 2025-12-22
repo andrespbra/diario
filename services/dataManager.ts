@@ -45,7 +45,7 @@ const preparePayload = (ticket: Partial<Ticket>) => {
         status: cleanValue(ticket.status),
         priority: cleanValue(ticket.priority),
         is_escalated: !!ticket.isEscalated,
-        is_tiger_team: !!ticket.isTigerTeam,
+        is_tiger_team: !!ticket.isTigerTeam, // Garante que o sinal crítico seja persistido como boolean
         ai_suggested_solution: cleanValue(ticket.aiSuggestedSolution),
         validated_by: cleanValue(ticket.validatedBy),
         validated_at: ticket.validatedAt instanceof Date ? ticket.validatedAt.toISOString() : cleanValue(ticket.validatedAt)
@@ -62,7 +62,8 @@ export const DataManager = {
 
     const email = username.includes('@') ? username : `${username}${VIRTUAL_DOMAIN}`;
     
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+    // Fix: Cast supabase.auth to any to resolve signInWithPassword property existence error
+    const { data: authData, error: authError } = await (supabase.auth as any).signInWithPassword({
         email,
         password
     });
@@ -98,7 +99,8 @@ export const DataManager = {
   getSession: async (): Promise<UserProfile | null> => {
       if (!isSupabaseConfigured) return null;
 
-      const { data: { session } } = await supabase.auth.getSession();
+      // Fix: Cast supabase.auth to any to resolve getSession property existence error
+      const { data: { session } } = await (supabase.auth as any).getSession();
       if (!session?.user) return null;
 
       const { data } = await supabase
@@ -120,7 +122,8 @@ export const DataManager = {
   },
 
   logout: async (): Promise<void> => {
-      if (isSupabaseConfigured) await supabase.auth.signOut();
+      // Fix: Cast supabase.auth to any to resolve signOut property existence error
+      if (isSupabaseConfigured) await (supabase.auth as any).signOut();
   },
 
   // --- USERS MANAGEMENT ---
@@ -150,7 +153,8 @@ export const DataManager = {
           }
       });
 
-      const { error } = await tempClient.auth.signUp({
+      // Fix: Cast tempClient.auth to any to resolve signUp property existence error
+      const { error } = await (tempClient.auth as any).signUp({
           email: email,
           password: password || 'mudar123',
           options: {
@@ -190,10 +194,12 @@ export const DataManager = {
 
   changePassword: async (username: string, newPass: string): Promise<void> => {
      if (!isSupabaseConfigured) return;
-     const { error: authError } = await supabase.auth.updateUser({ password: newPass });
+     // Fix: Cast supabase.auth to any to resolve updateUser property existence error
+     const { error: authError } = await (supabase.auth as any).updateUser({ password: newPass });
      if (authError) throw authError;
 
-     const { data: { user } } = await supabase.auth.getUser();
+     // Fix: Cast supabase.auth to any to resolve getUser property existence error
+     const { data: { user } } = await (supabase.auth as any).getUser();
      if (user) {
          await supabase
             .from('user_profiles')
@@ -207,7 +213,8 @@ export const DataManager = {
   getTickets: async (): Promise<Ticket[]> => {
     if (!isSupabaseConfigured) return [];
     
-    const { data: { user } } = await supabase.auth.getUser();
+    // Fix: Cast supabase.auth to any to resolve getUser property existence error
+    const { data: { user } } = await (supabase.auth as any).getUser();
     if (!user) return [];
 
     const { data: profile } = await supabase
@@ -224,7 +231,8 @@ export const DataManager = {
     const isAdmin = profile?.nivel === 'Admin';
 
     if (!isAdmin) {
-        query = query.eq('user_id', user.id);
+        // Analistas vêem seus próprios tickets OU qualquer ticket Tiger Team (visibilidade global para missões críticas)
+        query = query.or(`user_id.eq.${user.id},is_tiger_team.eq.true`);
     }
 
     const { data, error } = await query;
