@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS public.tickets (
   task_id TEXT,
   service_request TEXT,
   hostname TEXT,
-  n_serie TEXT, -- COLUNA ADICIONADA: Número de Série
+  n_serie TEXT, -- Número de Série
   subject TEXT,
   
   -- Detalhes do Suporte
@@ -83,10 +83,18 @@ CREATE TABLE IF NOT EXISTS public.tickets (
 -- Garantia de colunas (Idempotente)
 DO $$
 BEGIN
+    -- Coluna is_tiger_team
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tickets' AND column_name = 'is_tiger_team') THEN
         ALTER TABLE public.tickets ADD COLUMN is_tiger_team BOOLEAN DEFAULT false;
     END IF;
+    
+    -- Coluna n_serie
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tickets' AND column_name = 'n_serie') THEN
         ALTER TABLE public.tickets ADD COLUMN n_serie TEXT;
+    END IF;
+
+    -- Coluna subject (Caso falte)
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tickets' AND column_name = 'subject') THEN
+        ALTER TABLE public.tickets ADD COLUMN subject TEXT;
     END IF;
 END $$;

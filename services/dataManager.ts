@@ -5,29 +5,34 @@ import { Ticket, UserProfile, TicketStatus, TicketPriority } from '../types';
 
 const VIRTUAL_DOMAIN = '@sys.local';
 
-// Função auxiliar para limpar o payload e converter strings vazias em NULL (exigência do Postgres para tipos de data/uuid)
+// Função robusta para limpar valores antes de enviar ao Postgres
+// Converte strings vazias ou undefined em NULL, evitando erros de tipo
+const cleanValue = (val: any) => {
+    if (val === undefined || val === null) return null;
+    if (typeof val === 'string' && val.trim() === '') return null;
+    return val;
+};
+
 const preparePayload = (ticket: Partial<Ticket>) => {
-    const formatDate = (d: any) => (d && d.trim() !== '' ? d : null);
-    
     return {
-        user_id: ticket.userId,
-        customer_name: ticket.customerName,
-        location_name: ticket.locationName,
-        task_id: ticket.taskId,
-        service_request: ticket.serviceRequest,
-        hostname: ticket.hostname,
-        n_serie: ticket.serialNumber, // Mapeamento crucial para n_serie
-        subject: ticket.subject,
-        analyst_name: ticket.analystName,
-        support_start_time: formatDate(ticket.supportStartTime),
-        support_end_time: formatDate(ticket.supportEndTime),
-        description: ticket.description,
-        analyst_action: ticket.analystAction,
+        user_id: cleanValue(ticket.userId),
+        customer_name: cleanValue(ticket.customerName),
+        location_name: cleanValue(ticket.locationName),
+        task_id: cleanValue(ticket.taskId),
+        service_request: cleanValue(ticket.serviceRequest),
+        hostname: cleanValue(ticket.hostname),
+        n_serie: cleanValue(ticket.serialNumber), // Mapeamento crucial
+        subject: cleanValue(ticket.subject),
+        analyst_name: cleanValue(ticket.analystName),
+        support_start_time: cleanValue(ticket.supportStartTime),
+        support_end_time: cleanValue(ticket.supportEndTime),
+        description: cleanValue(ticket.description),
+        analyst_action: cleanValue(ticket.analystAction),
         is_due_call: !!ticket.isDueCall,
         used_acfs: !!ticket.usedACFS,
         has_ink_staining: !!ticket.hasInkStaining,
         part_replaced: !!ticket.partReplaced,
-        part_description: ticket.partDescription,
+        part_description: cleanValue(ticket.partDescription),
         tag_vldd: !!ticket.tagVLDD,
         tag_nlvdd: !!ticket.tagNLVDD,
         test_with_card: !!ticket.testWithCard,
@@ -35,15 +40,15 @@ const preparePayload = (ticket: Partial<Ticket>) => {
         sic_deposit: !!ticket.sicDeposit,
         sic_sensors: !!ticket.sicSensors,
         sic_smart_power: !!ticket.sicSmartPower,
-        client_witness_name: ticket.clientWitnessName,
-        client_witness_id: ticket.clientWitnessId,
-        status: ticket.status,
-        priority: ticket.priority,
+        client_witness_name: cleanValue(ticket.clientWitnessName),
+        client_witness_id: cleanValue(ticket.clientWitnessId),
+        status: cleanValue(ticket.status),
+        priority: cleanValue(ticket.priority),
         is_escalated: !!ticket.isEscalated,
         is_tiger_team: !!ticket.isTigerTeam,
-        ai_suggested_solution: ticket.aiSuggestedSolution,
-        validated_by: ticket.validatedBy,
-        validated_at: ticket.validatedAt ? ticket.validatedAt.toISOString() : null
+        ai_suggested_solution: cleanValue(ticket.aiSuggestedSolution),
+        validated_by: cleanValue(ticket.validatedBy),
+        validated_at: ticket.validatedAt instanceof Date ? ticket.validatedAt.toISOString() : cleanValue(ticket.validatedAt)
     };
 };
 

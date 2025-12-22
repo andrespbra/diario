@@ -1,24 +1,21 @@
 
 import React, { useState } from 'react';
 import { Ticket, TicketStatus, TicketPriority } from '../types';
-import { Search, MapPin, Clock, AlertTriangle, AlertOctagon, Wrench, CheckCircle2, XCircle, ArrowUpRight, Copy, Check, Trash2, Zap, Barcode } from 'lucide-center';
-
-// Nota: A correção abaixo foca no handleCloseTicket para garantir payload íntegro
 import { 
-  Search as SearchIcon, 
-  MapPin as MapPinIcon, 
-  Clock as ClockIcon, 
-  AlertTriangle as AlertTriangleIcon, 
-  AlertOctagon as AlertOctagonIcon, 
-  Wrench as WrenchIcon, 
-  CheckCircle2 as CheckCircleIcon, 
-  XCircle as XCircleIcon, 
-  ArrowUpRight as ArrowIcon, 
-  Copy as CopyIcon, 
-  Check as CheckIcon, 
-  Trash2 as TrashIcon, 
-  Zap as ZapIcon, 
-  Barcode as BarcodeIcon 
+  Search, 
+  MapPin, 
+  Clock, 
+  AlertTriangle, 
+  AlertOctagon, 
+  Wrench, 
+  CheckCircle2, 
+  XCircle, 
+  ArrowUpRight, 
+  Copy, 
+  Check, 
+  Trash2, 
+  Zap, 
+  Barcode 
 } from 'lucide-react';
 
 interface HistoryListProps {
@@ -49,7 +46,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({ tickets, onDelete, onU
       if (isTigerTeam) {
         return (
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200" title="Atendimento Tiger Team #198">
-              <ZapIcon className="w-3 h-3 mr-1 animate-pulse" />
+              <Zap className="w-3 h-3 mr-1 animate-pulse" />
               Tiger Team
           </span>
         );
@@ -58,7 +55,7 @@ export const HistoryList: React.FC<HistoryListProps> = ({ tickets, onDelete, onU
       if (isEscalated && status !== TicketStatus.RESOLVED && status !== TicketStatus.CLOSED) {
           return (
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-200" title="Este chamado foi escalonado">
-                  <AlertOctagonIcon className="w-3 h-3 mr-1" />
+                  <AlertOctagon className="w-3 h-3 mr-1" />
                   Escalonado
               </span>
           );
@@ -121,7 +118,7 @@ ${ticket.analystAction}`;
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
            <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-             <ClockIcon className="w-6 h-6 text-indigo-600" />
+             <Clock className="w-6 h-6 text-indigo-600" />
              Histórico de Atendimentos
            </h1>
            <p className="text-sm text-gray-500">Registro completo de todos os chamados.</p>
@@ -129,7 +126,7 @@ ${ticket.analystAction}`;
         
         <div className="flex flex-col sm:flex-row gap-3">
              <div className="relative">
-                 <SearchIcon className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+                 <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
                  <input 
                     type="text" 
                     placeholder="Buscar por task, serie, cliente..." 
@@ -170,7 +167,7 @@ ${ticket.analystAction}`;
                          <tr>
                              <td colSpan={6} className="px-6 py-12 text-center">
                                  <div className="flex flex-col items-center justify-center text-gray-400">
-                                     <SearchIcon className="w-8 h-8 mb-2 opacity-50" />
+                                     <Search className="w-8 h-8 mb-2 opacity-50" />
                                      <p>Nenhum chamado encontrado com os filtros atuais.</p>
                                  </div>
                              </td>
@@ -191,7 +188,7 @@ ${ticket.analystAction}`;
                                          <span className="font-bold text-gray-900 font-mono text-sm">{ticket.taskId}</span>
                                          <span className="text-xs text-gray-500 font-mono">{ticket.serviceRequest}</span>
                                          <div className="flex items-center gap-1 text-[10px] text-gray-400 mt-1">
-                                             <BarcodeIcon className="w-2.5 h-2.5" />
+                                             <Barcode className="w-2.5 h-2.5" />
                                              <span>{ticket.serialNumber || 'S/N'}</span>
                                          </div>
                                          <span className="text-[10px] text-gray-400">{ticket.hostname}</span>
@@ -201,7 +198,7 @@ ${ticket.analystAction}`;
                                      <div className="flex flex-col">
                                          <span className="font-medium text-gray-900">{ticket.customerName}</span>
                                          <span className="text-xs text-gray-500 flex items-center gap-1 mt-0.5">
-                                             <MapPinIcon className="w-3 h-3" /> {ticket.locationName}
+                                             <MapPin className="w-3 h-3" /> {ticket.locationName}
                                          </span>
                                          <span className="text-xs text-indigo-600 mt-1 font-medium">{ticket.analystName}</span>
                                      </div>
@@ -214,7 +211,7 @@ ${ticket.analystAction}`;
                                          </p>
                                          {ticket.partReplaced && (
                                             <div className="mt-2 flex items-center gap-1.5 text-xs text-amber-700 bg-amber-50 px-2 py-1 rounded w-fit border border-amber-100" title={`Peça trocada: ${ticket.partDescription}`}>
-                                                <WrenchIcon className="w-3 h-3" />
+                                                <Wrench className="w-3 h-3" />
                                                 <span className="font-medium">Troca de Peça:</span> {ticket.partDescription}
                                             </div>
                                          )}
@@ -227,7 +224,7 @@ ${ticket.analystAction}`;
                                  <td className="px-6 py-4 align-top whitespace-nowrap">
                                      <div className="flex flex-col gap-1">
                                          <div className="flex items-center text-xs font-medium text-gray-600 gap-1.5">
-                                             <ClockIcon className="w-3 h-3" />
+                                             <Clock className="w-3 h-3" />
                                              {new Date(ticket.createdAt).toLocaleDateString()}
                                          </div>
                                          <span className="text-xs text-gray-400 pl-4.5">
@@ -243,7 +240,7 @@ ${ticket.analystAction}`;
                                                 className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg transition-colors"
                                                 title="Encerrar chamado"
                                              >
-                                                 <CheckCircleIcon className="w-4 h-4" />
+                                                 <CheckCircle2 className="w-4 h-4" />
                                              </button>
                                          )}
                                          <button
@@ -251,7 +248,7 @@ ${ticket.analystAction}`;
                                             className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                                             title="Copiar detalhes do chamado"
                                          >
-                                             {copyFeedbackId === ticket.id ? <CheckIcon className="w-4 h-4 text-green-600" /> : <CopyIcon className="w-4 h-4" />}
+                                             {copyFeedbackId === ticket.id ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
                                          </button>
                                          <div className="w-px bg-gray-200 mx-1"></div>
                                          <button
@@ -259,7 +256,7 @@ ${ticket.analystAction}`;
                                             className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors group-hover:text-red-400"
                                             title="Excluir chamado permanentemente"
                                          >
-                                             <TrashIcon className="w-4 h-4" />
+                                             <Trash2 className="w-4 h-4" />
                                          </button>
                                      </div>
                                  </td>
