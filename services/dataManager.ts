@@ -5,6 +5,12 @@ import { Ticket, UserProfile, TicketStatus, TicketPriority } from '../types';
 
 const VIRTUAL_DOMAIN = '@sys.local';
 
+// Auxiliar para garantir que strings vazias de data sejam enviadas como NULL para o Postgres
+const formatDateForDB = (dateStr: string | null | undefined) => {
+    if (!dateStr || dateStr.trim() === '') return null;
+    return dateStr;
+};
+
 export const DataManager = {
   // --- AUTHENTICATION ---
   
@@ -225,6 +231,7 @@ export const DataManager = {
 
   addTicket: async (ticket: Ticket): Promise<void> => {
       if (!isSupabaseConfigured) return;
+      
       const dbPayload = {
         user_id: ticket.userId,
         customer_name: ticket.customerName,
@@ -232,11 +239,11 @@ export const DataManager = {
         task_id: ticket.taskId,
         service_request: ticket.serviceRequest,
         hostname: ticket.hostname,
-        n_serie: ticket.serialNumber,
+        n_serie: ticket.serialNumber, // Mapeado corretamente
         subject: ticket.subject,
         analyst_name: ticket.analystName,
-        support_start_time: ticket.supportStartTime || null,
-        support_end_time: ticket.supportEndTime || null,
+        support_start_time: formatDateForDB(ticket.supportStartTime),
+        support_end_time: formatDateForDB(ticket.supportEndTime),
         description: ticket.description,
         analyst_action: ticket.analystAction,
         is_due_call: !!ticket.isDueCall,
@@ -268,12 +275,13 @@ export const DataManager = {
         service_request: updatedTicket.serviceRequest,
         hostname: updatedTicket.hostname,
         n_serie: updatedTicket.serialNumber,
+        subject: updatedTicket.subject, // Adicionado
         customer_name: updatedTicket.customerName,
         location_name: updatedTicket.locationName,
         description: updatedTicket.description,
         analyst_action: updatedTicket.analystAction,
-        support_start_time: updatedTicket.supportStartTime,
-        support_end_time: updatedTicket.supportEndTime,
+        support_start_time: formatDateForDB(updatedTicket.supportStartTime),
+        support_end_time: formatDateForDB(updatedTicket.supportEndTime),
         part_replaced: !!updatedTicket.partReplaced,
         part_description: updatedTicket.partDescription,
         tag_vldd: !!updatedTicket.tagVLDD,
@@ -286,6 +294,7 @@ export const DataManager = {
         client_witness_name: updatedTicket.clientWitnessName,
         client_witness_id: updatedTicket.clientWitnessId,
         status: updatedTicket.status,
+        priority: updatedTicket.priority, // Adicionado
         is_escalated: !!updatedTicket.isEscalated,
         is_tiger_team: !!updatedTicket.isTigerTeam,
         validated_at: updatedTicket.validatedAt ? updatedTicket.validatedAt.toISOString() : new Date().toISOString(),

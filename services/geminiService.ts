@@ -24,9 +24,9 @@ export const analyzeTicketProblem = async (problemDescription: string): Promise<
     // Fix: Create a new GoogleGenAI instance right before making an API call to ensure it uses the latest environment configuration
     const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-    // Fix: Use ai.models.generateContent with the Gemini 3 series model and compliant configuration
+    // Fix: Use gemini-3-pro-preview for complex reasoning and technical solution generation tasks
     const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
+      model: "gemini-3-pro-preview",
       contents: `Analise a seguinte descrição de problema de suporte técnico: "${problemDescription}".
       Retorne um JSON com:
       1. Uma solução técnica sugerida concisa (max 2 frases).

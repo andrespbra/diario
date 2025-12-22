@@ -34,6 +34,7 @@ CREATE TABLE IF NOT EXISTS public.tickets (
   task_id TEXT,
   service_request TEXT,
   hostname TEXT,
+  n_serie TEXT, -- COLUNA ADICIONADA: Número de Série
   subject TEXT,
   
   -- Detalhes do Suporte
@@ -74,17 +75,18 @@ CREATE TABLE IF NOT EXISTS public.tickets (
   status TEXT,
   priority TEXT,
   is_escalated BOOLEAN DEFAULT false,
-  is_tiger_team BOOLEAN DEFAULT false, -- NOVA COLUNA ADICIONADA
+  is_tiger_team BOOLEAN DEFAULT false,
   
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Política de segurança para a nova coluna (Idempotente)
+-- Garantia de colunas (Idempotente)
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tickets' AND column_name = 'is_tiger_team') THEN
         ALTER TABLE public.tickets ADD COLUMN is_tiger_team BOOLEAN DEFAULT false;
     END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tickets' AND column_name = 'n_serie') THEN
+        ALTER TABLE public.tickets ADD COLUMN n_serie TEXT;
+    END IF;
 END $$;
-
--- RLS e outras configurações permanecem iguais...

@@ -90,7 +90,9 @@ ${ticket.analystAction}`;
         onUpdate({
             ...ticket,
             status: TicketStatus.CLOSED,
-            supportEndTime: ticket.supportEndTime || new Date().toISOString().slice(0, 16)
+            supportEndTime: ticket.supportEndTime && ticket.supportEndTime.trim() !== '' 
+                ? ticket.supportEndTime 
+                : new Date().toISOString().slice(0, 16)
         });
     }
   };
