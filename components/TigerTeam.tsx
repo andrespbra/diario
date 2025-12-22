@@ -81,7 +81,8 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
     }
   }, [editFormData]);
 
-  const allTigerTickets = tickets.filter(t => t.isTigerTeam === true);
+  // Reforçado o filtro usando !! para conversão booleana segura
+  const allTigerTickets = tickets.filter(t => !!t.isTigerTeam);
 
   const activeMissions = allTigerTickets.filter(t => 
     t.status !== TicketStatus.CLOSED && t.status !== TicketStatus.RESOLVED

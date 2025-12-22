@@ -120,14 +120,15 @@ Final:  ${end}
     const isEscalatedFinal = formData.isTigerTeam || formData.isEscalated || (aiSuggestion ? aiSuggestion.escalated : false);
     const priorityFinal = formData.isTigerTeam ? TicketPriority.CRITICAL : (isEscalatedFinal ? TicketPriority.CRITICAL : (aiSuggestion ? aiSuggestion.priority : TicketPriority.MEDIUM));
     
+    // Explicitamente forçando os tipos booleanos para evitar erros de casting
     const newTicket: Ticket = {
       id: Math.random().toString(36).substr(2, 9),
       userId: currentUser.id,
       ...formData,
       status: formData.supportEndTime ? TicketStatus.RESOLVED : TicketStatus.OPEN,
       priority: priorityFinal,
-      isEscalated: isEscalatedFinal,
-      isTigerTeam: formData.isTigerTeam,
+      isEscalated: !!isEscalatedFinal,
+      isTigerTeam: !!formData.isTigerTeam, // Atribuição reforçada
       aiSuggestedSolution: aiSuggestion?.solution,
       createdAt: new Date(),
     };

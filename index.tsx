@@ -3,11 +3,6 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-// Fallback polyfill
-if (typeof window !== 'undefined' && typeof process === 'undefined') {
-  (window as any).process = { env: {} };
-}
-
 // Define interfaces for Props and State to resolve 'state' and 'props' property existence errors
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -18,9 +13,9 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fix: Explicitly extend React.Component with generics to ensure state and props are correctly inherited and recognized by the TypeScript compiler
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  // Fix: Explicitly define and initialize the state property to resolve "Property 'state' does not exist" errors
+// Fix: Use the named 'Component' import from React to ensure proper inheritance and type recognition of 'props' and 'state'
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Explicitly define and initialize the state property
   public state: ErrorBoundaryState = {
     hasError: false,
     error: null,
@@ -30,18 +25,18 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
     super(props);
   }
 
-  // Correctly type the static method to return ErrorBoundaryState
+  // Fix: Correctly type the static method to return ErrorBoundaryState for React's error boundary logic
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  // Use ErrorInfo type for componentDidCatch
+  // Fix: Use ErrorInfo type for componentDidCatch to handle errors gracefully
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
   render() {
-    // Fix: Access state properties safely now that inheritance from React.Component is properly established
+    // Fix: Access state properties safely using standard React component pattern after inheritance fix
     if (this.state.hasError) {
       return (
         <div style={{ padding: '20px', fontFamily: 'sans-serif', color: '#333', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', textAlign: 'center' }}>
@@ -69,7 +64,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
 
-    // Fix: Access this.props.children correctly after ensuring proper inheritance from React.Component
+    // Fix: Access this.props.children correctly after ensuring proper inheritance from the Component class
     return this.props.children || null;
   }
 }
