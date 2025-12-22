@@ -5,10 +5,46 @@ import { Ticket, UserProfile, TicketStatus, TicketPriority } from '../types';
 
 const VIRTUAL_DOMAIN = '@sys.local';
 
-// Auxiliar para garantir que strings vazias de data sejam enviadas como NULL para o Postgres
-const formatDateForDB = (dateStr: string | null | undefined) => {
-    if (!dateStr || dateStr.trim() === '') return null;
-    return dateStr;
+// Função auxiliar para limpar o payload e converter strings vazias em NULL (exigência do Postgres para tipos de data/uuid)
+const preparePayload = (ticket: Partial<Ticket>) => {
+    const formatDate = (d: any) => (d && d.trim() !== '' ? d : null);
+    
+    return {
+        user_id: ticket.userId,
+        customer_name: ticket.customerName,
+        location_name: ticket.locationName,
+        task_id: ticket.taskId,
+        service_request: ticket.serviceRequest,
+        hostname: ticket.hostname,
+        n_serie: ticket.serialNumber, // Mapeamento crucial para n_serie
+        subject: ticket.subject,
+        analyst_name: ticket.analystName,
+        support_start_time: formatDate(ticket.supportStartTime),
+        support_end_time: formatDate(ticket.supportEndTime),
+        description: ticket.description,
+        analyst_action: ticket.analystAction,
+        is_due_call: !!ticket.isDueCall,
+        used_acfs: !!ticket.usedACFS,
+        has_ink_staining: !!ticket.hasInkStaining,
+        part_replaced: !!ticket.partReplaced,
+        part_description: ticket.partDescription,
+        tag_vldd: !!ticket.tagVLDD,
+        tag_nlvdd: !!ticket.tagNLVDD,
+        test_with_card: !!ticket.testWithCard,
+        sic_withdrawal: !!ticket.sicWithdrawal,
+        sic_deposit: !!ticket.sicDeposit,
+        sic_sensors: !!ticket.sicSensors,
+        sic_smart_power: !!ticket.sicSmartPower,
+        client_witness_name: ticket.clientWitnessName,
+        client_witness_id: ticket.clientWitnessId,
+        status: ticket.status,
+        priority: ticket.priority,
+        is_escalated: !!ticket.isEscalated,
+        is_tiger_team: !!ticket.isTigerTeam,
+        ai_suggested_solution: ticket.aiSuggestedSolution,
+        validated_by: ticket.validatedBy,
+        validated_at: ticket.validatedAt ? ticket.validatedAt.toISOString() : null
+    };
 };
 
 export const DataManager = {
@@ -232,80 +268,29 @@ export const DataManager = {
   addTicket: async (ticket: Ticket): Promise<void> => {
       if (!isSupabaseConfigured) return;
       
-      const dbPayload = {
-        user_id: ticket.userId,
-        customer_name: ticket.customerName,
-        location_name: ticket.locationName,
-        task_id: ticket.taskId,
-        service_request: ticket.serviceRequest,
-        hostname: ticket.hostname,
-        n_serie: ticket.serialNumber, // Mapeado corretamente
-        subject: ticket.subject,
-        analyst_name: ticket.analystName,
-        support_start_time: formatDateForDB(ticket.supportStartTime),
-        support_end_time: formatDateForDB(ticket.supportEndTime),
-        description: ticket.description,
-        analyst_action: ticket.analystAction,
-        is_due_call: !!ticket.isDueCall,
-        used_acfs: !!ticket.usedACFS,
-        has_ink_staining: !!ticket.hasInkStaining,
-        part_replaced: !!ticket.partReplaced,
-        part_description: ticket.partDescription,
-        tag_vldd: !!ticket.tagVLDD,
-        tag_nlvdd: !!ticket.tagNLVDD,
-        client_witness_name: ticket.clientWitnessName,
-        client_witness_id: ticket.clientWitnessId,
-        status: ticket.status,
-        priority: ticket.priority,
-        is_escalated: !!ticket.isEscalated,
-        is_tiger_team: !!ticket.isTigerTeam,
-        ai_suggested_solution: ticket.aiSuggestedSolution
-      };
-
+      const dbPayload = preparePayload(ticket);
       const { error } = await supabase.from('tickets').insert([dbPayload]);
-      if (error) throw error;
+      if (error) {
+          console.error("Erro no insert do ticket:", error);
+          throw error;
+      }
   },
 
   updateTicket: async (updatedTicket: Ticket): Promise<void> => {
       if (!isSupabaseConfigured) return;
       if (!updatedTicket.id) throw new Error("ID do chamado ausente para atualização.");
 
-      const dbPayload = {
-        task_id: updatedTicket.taskId,
-        service_request: updatedTicket.serviceRequest,
-        hostname: updatedTicket.hostname,
-        n_serie: updatedTicket.serialNumber,
-        subject: updatedTicket.subject, // Adicionado
-        customer_name: updatedTicket.customerName,
-        location_name: updatedTicket.locationName,
-        description: updatedTicket.description,
-        analyst_action: updatedTicket.analystAction,
-        support_start_time: formatDateForDB(updatedTicket.supportStartTime),
-        support_end_time: formatDateForDB(updatedTicket.supportEndTime),
-        part_replaced: !!updatedTicket.partReplaced,
-        part_description: updatedTicket.partDescription,
-        tag_vldd: !!updatedTicket.tagVLDD,
-        tag_nlvdd: !!updatedTicket.tagNLVDD,
-        test_with_card: !!updatedTicket.testWithCard,
-        sic_withdrawal: !!updatedTicket.sicWithdrawal,
-        sic_deposit: !!updatedTicket.sicDeposit,
-        sic_sensors: !!updatedTicket.sicSensors,
-        sic_smart_power: !!updatedTicket.sicSmartPower,
-        client_witness_name: updatedTicket.clientWitnessName,
-        client_witness_id: updatedTicket.clientWitnessId,
-        status: updatedTicket.status,
-        priority: updatedTicket.priority, // Adicionado
-        is_escalated: !!updatedTicket.isEscalated,
-        is_tiger_team: !!updatedTicket.isTigerTeam,
-        validated_at: updatedTicket.validatedAt ? updatedTicket.validatedAt.toISOString() : new Date().toISOString(),
-      };
-
+      const dbPayload = preparePayload(updatedTicket);
+      
       const { error } = await supabase
         .from('tickets')
         .update(dbPayload)
         .eq('id', updatedTicket.id);
 
-      if (error) throw error;
+      if (error) {
+          console.error("Erro no update do ticket:", error);
+          throw error;
+      }
   },
 
   deleteTicket: async (ticketId: string): Promise<void> => {

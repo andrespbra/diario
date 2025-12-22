@@ -1,6 +1,6 @@
 
-// Fix: Import Component directly to ensure proper type inheritance
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+// Fix: Import React and necessary types directly to ensure proper type inheritance
+import React, { ErrorInfo, ReactNode } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
@@ -14,8 +14,8 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fix: Use Component directly to ensure proper inheritance and type recognition of 'props' and 'state'
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Use React.Component directly to ensure proper inheritance and type recognition of 'props' and 'state'
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
   // Fix: Explicitly define and initialize the state property
   public state: ErrorBoundaryState = {
     hasError: false,
@@ -65,7 +65,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
 
-    // Fix: Access this.props.children correctly after ensuring proper inheritance from the Component class
+    // Fix: Access this.props.children correctly after ensuring proper inheritance from the React.Component class
     return this.props.children || null;
   }
 }
