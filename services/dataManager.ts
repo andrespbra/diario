@@ -11,7 +11,7 @@ const cleanValue = (val: any) => {
 };
 
 const preparePayload = (ticket: Partial<Ticket>) => {
-    const payload = {
+    return {
         user_id: cleanValue(ticket.userId),
         customer_name: cleanValue(ticket.customerName),
         location_name: cleanValue(ticket.locationName),
@@ -47,12 +47,11 @@ const preparePayload = (ticket: Partial<Ticket>) => {
         validated_by: cleanValue(ticket.validatedBy),
         validated_at: ticket.validatedAt instanceof Date ? ticket.validatedAt.toISOString() : cleanValue(ticket.validatedAt)
     };
-    return payload;
 };
 
 export const DataManager = {
   authenticate: async (username: string, password: string): Promise<UserProfile> => {
-    if (!isSupabaseConfigured) throw new Error("Erro de conexão: Banco de dados não configurado.");
+    if (!isSupabaseConfigured) throw new Error("Supabase não configurado.");
 
     const email = username.includes('@') ? username : `${username}${VIRTUAL_DOMAIN}`;
     
@@ -61,26 +60,18 @@ export const DataManager = {
         password
     });
 
-    if (authError) {
-        if (authError.message.includes('recursion')) throw new Error("Erro Crítico: Recursão infinita detectada no banco. Por favor, re-execute o script SQL de políticas.");
-        throw new Error(authError.message === 'Invalid login credentials' ? 'Usuário ou senha incorretos' : authError.message);
-    }
-    
-    if (!authData.user) throw new Error('Falha na autenticação.');
+    if (authError) throw new Error(authError.message);
+    if (!authData.user) throw new Error('Usuário não encontrado.');
 
-    // Tenta obter o perfil com retry simples se o trigger estiver processando
-    let profile = null;
-    let attempts = 0;
-    while (attempts < 3 && !profile) {
-        const { data } = await supabase.from('user_profiles').select('*').eq('id', authData.user.id).single();
-        if (data) profile = data;
-        else {
-            attempts++;
-            await new Promise(r => setTimeout(r, 500));
-        }
-    }
+    // Busca perfil
+    const { data: profile, error: pError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', authData.user.id)
+        .single();
 
-    if (!profile) {
+    if (pError || !profile) {
+        console.warn("Perfil não encontrado em user_profiles. Usando dados do Auth.");
         return {
             id: authData.user.id,
             name: username,
@@ -104,13 +95,13 @@ export const DataManager = {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return null;
 
-      const { data: profile, error } = await supabase
+      const { data: profile } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', session.user.id)
         .single();
       
-      if (error || !profile) return null;
+      if (!profile) return null;
       
       return {
           id: profile.id,
@@ -125,31 +116,23 @@ export const DataManager = {
       if (isSupabaseConfigured) await supabase.auth.signOut();
   },
 
-  changePassword: async (username: string, newPassword: string) => {
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) throw error;
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-        await supabase.from('user_profiles').update({ must_change_password: false }).eq('id', user.id);
-    }
-  },
-
   getTickets: async (): Promise<Ticket[]> => {
     if (!isSupabaseConfigured) return [];
     
+    console.log("🔍 Solicitando tickets ao Supabase...");
     const { data, error } = await supabase
       .from('tickets')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-        console.error("❌ Erro ao buscar tickets:", error);
+        console.error("❌ Erro na consulta de tickets:", error);
         throw new Error(error.message);
     }
 
-    if (!data) return [];
+    console.log("✅ Dados recebidos:", data?.length || 0, "tickets.");
 
-    return data.map((t: any) => ({
+    return (data || []).map((t: any) => ({
         id: t.id,
         userId: t.user_id,
         customerName: t.customer_name || '',
@@ -189,11 +172,30 @@ export const DataManager = {
     }));
   },
 
+  addTicket: async (ticket: Ticket) => {
+      console.log("📤 Subindo novo ticket...", ticket.taskId);
+      const { error } = await supabase.from('tickets').insert([preparePayload(ticket)]);
+      if (error) {
+          console.error("❌ Falha no upload do ticket:", error);
+          throw error;
+      }
+      console.log("✅ Ticket salvo com sucesso.");
+  },
+
+  updateTicket: async (ticket: Ticket) => {
+      const { error } = await supabase.from('tickets').update(preparePayload(ticket)).eq('id', ticket.id);
+      if (error) throw error;
+  },
+
+  deleteTicket: async (id: string) => {
+      const { error } = await supabase.from('tickets').delete().eq('id', id);
+      if (error) throw error;
+  },
+
   getUsers: async (): Promise<UserProfile[]> => {
-    if (!isSupabaseConfigured) return [];
     const { data, error } = await supabase.from('user_profiles').select('*');
     if (error) throw error;
-    return data.map((u: any) => ({
+    return (data || []).map((u: any) => ({
         id: u.id,
         name: u.name,
         username: u.username,
@@ -204,19 +206,12 @@ export const DataManager = {
 
   addUser: async (newUser: UserProfile, password?: string) => {
     const email = newUser.username.includes('@') ? newUser.username : `${newUser.username}${VIRTUAL_DOMAIN}`;
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    const { error } = await supabase.auth.signUp({
       email,
       password: password || 'Mudar123!',
-      options: { 
-          data: { 
-              name: newUser.name, 
-              nivel: newUser.nivel,
-              username: newUser.username
-          } 
-      }
+      options: { data: { name: newUser.name, nivel: newUser.nivel } }
     });
-    if (authError) throw authError;
-    // O perfil será criado pelo trigger handle_new_user()
+    if (error) throw error;
   },
 
   deleteUser: async (userId: string) => {
@@ -224,20 +219,12 @@ export const DataManager = {
     if (error) throw error;
   },
 
-  addTicket: async (ticket: Ticket) => {
-      const payload = preparePayload(ticket);
-      const { error } = await supabase.from('tickets').insert([payload]);
-      if (error) throw error;
-  },
-
-  updateTicket: async (ticket: Ticket) => {
-      const payload = preparePayload(ticket);
-      const { error } = await supabase.from('tickets').update(payload).eq('id', ticket.id);
-      if (error) throw error;
-  },
-
-  deleteTicket: async (id: string) => {
-      const { error } = await supabase.from('tickets').delete().eq('id', id);
-      if (error) throw error;
+  changePassword: async (username: string, newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user) {
+        await supabase.from('user_profiles').update({ must_change_password: false }).eq('id', user.id);
+    }
   }
 };

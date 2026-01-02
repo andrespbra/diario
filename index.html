@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
   <head>
@@ -5,8 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Diario de Bordo</title>
     <script>
-      // Global Polyfill for process.env to prevent crashes in libraries expecting Node environment
-      window.process = { env: { NODE_ENV: 'production' } };
+      // Global Polyfill for process.env - Non-destructive to allow environment injection
+      window.process = window.process || { env: {} };
+      window.process.env = window.process.env || {};
+      if (!window.process.env.NODE_ENV) window.process.env.NODE_ENV = 'production';
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">

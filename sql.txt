@@ -1,56 +1,71 @@
 
--- 1. ESTRUTURA BASE
-CREATE EXTENSION IF NOT EXISTS pgcrypto;
+-- 1. LIMPEZA TOTAL (PARA REMOVER POLÍTICAS QUE CAUSAM RECURSÃO)
+DROP POLICY IF EXISTS "safe_read_profiles" ON public.user_profiles;
+DROP POLICY IF EXISTS "safe_update_own_profile" ON public.user_profiles;
+DROP POLICY IF EXISTS "safe_read_tickets" ON public.tickets;
+DROP POLICY IF EXISTS "safe_insert_tickets" ON public.tickets;
+DROP POLICY IF EXISTS "safe_update_tickets" ON public.tickets;
+DROP POLICY IF EXISTS "safe_delete_tickets" ON public.tickets;
+DROP POLICY IF EXISTS "Profiles_Read_All" ON public.user_profiles;
+DROP POLICY IF EXISTS "Profiles_Update_Own" ON public.user_profiles;
+DROP POLICY IF EXISTS "Tickets_Read_All" ON public.tickets;
+DROP POLICY IF EXISTS "Tickets_Insert_Auth" ON public.tickets;
 
-CREATE TABLE IF NOT EXISTS public.user_profiles (
-  id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
-  name TEXT NOT NULL,
-  username TEXT UNIQUE,
-  nivel TEXT DEFAULT 'Analista',
-  must_change_password BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+-- 2. FUNÇÃO AUXILIAR PARA EVITAR RECURSÃO
+-- Esta função ignora o RLS para checar se o usuário é admin
+CREATE OR REPLACE FUNCTION public.check_is_admin()
+RETURNS BOOLEAN AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1 FROM public.user_profiles 
+    WHERE id = auth.uid() AND nivel = 'Admin'
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE TABLE IF NOT EXISTS public.tickets (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES public.user_profiles(id) ON DELETE CASCADE,
-  customer_name TEXT,
-  location_name TEXT,
-  task_id TEXT,
-  service_request TEXT,
-  hostname TEXT,
-  n_serie TEXT,
-  subject TEXT,
-  analyst_name TEXT,
-  support_start_time TIMESTAMPTZ,
-  support_end_time TIMESTAMPTZ,
-  description TEXT,
-  analyst_action TEXT,
-  is_due_call BOOLEAN DEFAULT false,
-  used_acfs BOOLEAN DEFAULT false,
-  has_ink_staining BOOLEAN DEFAULT false,
-  part_replaced BOOLEAN DEFAULT false,
-  part_description TEXT,
-  tag_vldd BOOLEAN DEFAULT false,
-  tag_nlvdd BOOLEAN DEFAULT false,
-  test_with_card BOOLEAN DEFAULT false,
-  sic_withdrawal BOOLEAN DEFAULT false,
-  sic_deposit BOOLEAN DEFAULT false,
-  sic_sensors BOOLEAN DEFAULT false,
-  sic_smart_power BOOLEAN DEFAULT false,
-  client_witness_name TEXT,
-  client_witness_id TEXT,
-  validated_by TEXT,
-  validated_at TIMESTAMPTZ,
-  ai_suggested_solution TEXT,
-  status TEXT DEFAULT 'Aberto',
-  priority TEXT DEFAULT 'Média',
-  is_escalated BOOLEAN DEFAULT false,
-  is_tiger_team BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+-- 3. POLÍTICAS PARA USER_PROFILES (À PROVA DE LOOP)
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 
--- 2. FUNÇÃO E TRIGGER DE SINCRONIZAÇÃO
+-- QUALQUER UM LOGADO PODE LER PERFIS (Essencial para evitar a recursão)
+CREATE POLICY "profiles_select_policy" 
+ON public.user_profiles FOR SELECT 
+TO authenticated 
+USING (true);
+
+-- APENAS O PRÓPRIO OU ADMIN PODE ATUALIZAR
+CREATE POLICY "profiles_update_policy" 
+ON public.user_profiles FOR UPDATE 
+TO authenticated 
+USING (auth.uid() = id OR public.check_is_admin());
+
+-- 4. POLÍTICAS PARA TICKETS
+ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
+
+-- LEITURA: Todos os técnicos veem todos os chamados
+CREATE POLICY "tickets_select_policy" 
+ON public.tickets FOR SELECT 
+TO authenticated 
+USING (true);
+
+-- INSERÇÃO: Técnico insere seu próprio chamado
+CREATE POLICY "tickets_insert_policy" 
+ON public.tickets FOR INSERT 
+TO authenticated 
+WITH CHECK (auth.uid() = user_id);
+
+-- ATUALIZAÇÃO: Todos podem atualizar (fluxo colaborativo N1 -> N2 -> Tiger)
+CREATE POLICY "tickets_update_policy" 
+ON public.tickets FOR UPDATE 
+TO authenticated 
+USING (true);
+
+-- DELEÇÃO: Apenas o dono ou Admin
+CREATE POLICY "tickets_delete_policy" 
+ON public.tickets FOR DELETE 
+TO authenticated 
+USING (auth.uid() = user_id OR public.check_is_admin());
+
+-- 5. TRIGGER DE CRIAÇÃO AUTOMÁTICA DE PERFIL (CASO NÃO EXISTA)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
@@ -71,51 +86,3 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
-
--- 3. REMOÇÃO DE POLÍTICAS ANTIGAS (EVITA RECURSÃO FANTASMA)
--- Removemos todas as variações de nomes de políticas para garantir um estado limpo
-DROP POLICY IF EXISTS "Profiles_Read_All" ON public.user_profiles;
-DROP POLICY IF EXISTS "Profiles_Update_Own" ON public.user_profiles;
-DROP POLICY IF EXISTS "Enable read access for all users" ON public.user_profiles;
-DROP POLICY IF EXISTS "Users can update own profile" ON public.user_profiles;
-DROP POLICY IF EXISTS "Perfis visíveis para autenticados" ON public.user_profiles;
-DROP POLICY IF EXISTS "Admin_Read" ON public.user_profiles;
-
-DROP POLICY IF EXISTS "Tickets_Read_All" ON public.tickets;
-DROP POLICY IF EXISTS "Tickets_Insert_Auth" ON public.tickets;
-DROP POLICY IF EXISTS "Tickets_Update_Auth" ON public.tickets;
-DROP POLICY IF EXISTS "Tickets_Delete_Auth" ON public.tickets;
-DROP POLICY IF EXISTS "Tickets are viewable by authenticated users" ON public.tickets;
-
--- 4. NOVAS POLÍTICAS (À PROVA DE RECURSÃO)
-
-ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
-
--- USER_PROFILES: Leitura aberta para qualquer logado (ISSO PARA A RECURSÃO)
-CREATE POLICY "safe_read_profiles" ON public.user_profiles 
-FOR SELECT TO authenticated USING (true);
-
--- USER_PROFILES: Update apenas no próprio
-CREATE POLICY "safe_update_own_profile" ON public.user_profiles 
-FOR UPDATE TO authenticated USING (auth.uid() = id);
-
--- TICKETS: Leitura Total
-CREATE POLICY "safe_read_tickets" ON public.tickets 
-FOR SELECT TO authenticated USING (true);
-
--- TICKETS: Inserção
-CREATE POLICY "safe_insert_tickets" ON public.tickets 
-FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
-
--- TICKETS: Update Total (Necessário para fluxo técnico colaborativo)
-CREATE POLICY "safe_update_tickets" ON public.tickets 
-FOR UPDATE TO authenticated USING (true);
-
--- TICKETS: Delete (Apenas o próprio ou se for Admin - Verificação direta sem loop)
-CREATE POLICY "safe_delete_tickets" ON public.tickets 
-FOR DELETE TO authenticated 
-USING (
-  auth.uid() = user_id OR 
-  (SELECT nivel FROM public.user_profiles WHERE id = auth.uid()) = 'Admin'
-);
