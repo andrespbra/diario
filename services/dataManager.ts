@@ -199,57 +199,64 @@ export const DataManager = {
   getTickets: async (): Promise<Ticket[]> => {
     if (!isSupabaseConfigured) return [];
     
-    const { data: { user } } = await (supabase.auth as any).getUser();
+    const { data: authData } = await (supabase.auth as any).getUser();
+    const user = authData?.user;
     if (!user) return [];
 
-    const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('nivel')
-        .eq('id', user.id)
-        .single();
+    // Tenta buscar o perfil, mas não bloqueia se falhar
+    let isAdmin = false;
+    try {
+        const { data: profile } = await supabase
+            .from('user_profiles')
+            .select('nivel')
+            .eq('id', user.id)
+            .single();
+        isAdmin = profile?.nivel === 'Admin';
+    } catch (e) {
+        console.warn("Could not fetch user profile for RLS mapping", e);
+    }
 
     let query = supabase
       .from('tickets')
       .select('*')
       .order('created_at', { ascending: false });
 
-    const isAdmin = profile?.nivel === 'Admin';
-
     if (!isAdmin) {
-        // PostgREST or query: filtra os do próprio usuário OU os Tiger Team OU chamados escalonados para validação conjunta
+        // Query OR otimizada para garantir visibilidade total de:
+        // 1. Meus próprios chamados
+        // 2. Qualquer chamado do Tiger Team (para cooperação)
+        // 3. Qualquer chamado Escalonado (para validação)
         query = query.or(`user_id.eq.${user.id},is_tiger_team.eq.true,is_escalated.eq.true`);
     }
 
     const { data, error } = await query;
     if (error) {
-        console.error("Erro Supabase:", error);
+        console.error("Erro Supabase na busca de tickets:", error);
         throw error;
     }
 
-    if (!data || data.length === 0) {
-        return [];
-    }
+    if (!data) return [];
 
     return data.map((t: any) => ({
         id: t.id,
         userId: t.user_id,
-        customerName: t.customer_name,
-        locationName: t.location_name,
-        taskId: t.task_id,
-        serviceRequest: t.service_request,
-        hostname: t.hostname,
+        customerName: t.customer_name || '',
+        locationName: t.location_name || '',
+        taskId: t.task_id || '',
+        serviceRequest: t.service_request || '',
+        hostname: t.hostname || '',
         serialNumber: t.n_serie || '',
-        subject: t.subject,
-        analystName: t.analyst_name,
-        supportStartTime: t.support_start_time,
-        supportEndTime: t.support_end_time,
-        description: t.description,
-        analystAction: t.analyst_action,
+        subject: t.subject || '',
+        analystName: t.analyst_name || '',
+        supportStartTime: t.support_start_time || '',
+        supportEndTime: t.support_end_time || '',
+        description: t.description || '',
+        analystAction: t.analyst_action || '',
         isDueCall: !!t.is_due_call,
         usedACFS: !!t.used_acfs,
         hasInkStaining: !!t.has_ink_staining,
         partReplaced: !!t.part_replaced,
-        partDescription: t.part_description,
+        partDescription: t.part_description || '',
         tagVLDD: !!t.tag_vldd,
         tagNLVDD: !!t.tag_nlvdd,
         testWithCard: !!t.test_with_card,
@@ -257,45 +264,35 @@ export const DataManager = {
         sicDeposit: !!t.sic_deposit,
         sicSensors: !!t.sic_sensors,
         sicSmartPower: !!t.sic_smart_power,
-        clientWitnessName: t.client_witness_name,
-        clientWitnessId: t.client_witness_id,
-        validatedBy: t.validated_by,
+        clientWitnessName: t.client_witness_name || '',
+        clientWitnessId: t.client_witness_id || '',
+        validatedBy: t.validated_by || '',
         validatedAt: t.validated_at ? new Date(t.validated_at) : undefined,
-        aiSuggestedSolution: t.ai_suggested_solution,
-        status: t.status,
-        priority: t.priority,
+        aiSuggestedSolution: t.ai_suggested_solution || '',
+        status: (t.status as TicketStatus) || TicketStatus.OPEN,
+        priority: (t.priority as TicketPriority) || TicketPriority.MEDIUM,
         isEscalated: !!t.is_escalated,
         isTigerTeam: !!t.is_tiger_team,
-        createdAt: new Date(t.created_at),
+        createdAt: t.created_at ? new Date(t.created_at) : new Date(),
     }));
   },
 
   addTicket: async (ticket: Ticket): Promise<void> => {
       if (!isSupabaseConfigured) return;
-      
       const dbPayload = preparePayload(ticket);
       const { error } = await supabase.from('tickets').insert([dbPayload]);
-      if (error) {
-          console.error("Erro no insert do ticket:", error);
-          throw error;
-      }
+      if (error) throw error;
   },
 
   updateTicket: async (updatedTicket: Ticket): Promise<void> => {
       if (!isSupabaseConfigured) return;
       if (!updatedTicket.id) throw new Error("ID do chamado ausente.");
-
       const dbPayload = preparePayload(updatedTicket);
-      
       const { error } = await supabase
         .from('tickets')
         .update(dbPayload)
         .eq('id', updatedTicket.id);
-
-      if (error) {
-          console.error("Erro no update do ticket:", error);
-          throw error;
-      }
+      if (error) throw error;
   },
 
   deleteTicket: async (ticketId: string): Promise<void> => {

@@ -10,21 +10,21 @@ import { LoginPage } from './components/LoginPage';
 import { Settings } from './components/Settings';
 import { ChangePassword } from './components/ChangePassword';
 import { Ticket, ViewState, UserProfile, TicketStatus } from './types';
-import { Menu, X, Loader2, Cloud, AlertTriangle } from 'lucide-react';
+import { Menu, X, Loader2, Cloud, AlertTriangle, RefreshCw } from 'lucide-react';
 import { DataManager } from './services/dataManager';
 import { isSupabaseConfigured } from './lib/supabaseClient';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
+  const [dataLoading, setDataLoading] = useState(false);
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [globalError, setGlobalError] = useState<string | null>(null);
 
-  // 1. Handle Authentication Session
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -36,7 +36,6 @@ const App: React.FC = () => {
         const user = await DataManager.getSession();
         if (user) {
             setCurrentUser(user);
-            // Load initial data
             fetchData(user);
         }
       } catch (err) {
@@ -50,6 +49,8 @@ const App: React.FC = () => {
   }, []);
 
   const fetchData = async (user: UserProfile) => {
+      setDataLoading(true);
+      setGlobalError(null);
       try {
         const ticketData = await DataManager.getTickets();
         setTickets(ticketData);
@@ -58,12 +59,14 @@ const App: React.FC = () => {
             const userData = await DataManager.getUsers();
             setUsers(userData);
         }
-      } catch (e) {
+      } catch (e: any) {
           console.error("Error fetching data", e);
+          setGlobalError("Falha ao carregar dados do servidor. Verifique sua conexão.");
+      } finally {
+          setDataLoading(false);
       }
   };
 
-  // Called by LoginPage
   const handleLoginSuccess = (user: UserProfile) => {
       setCurrentUser(user);
       fetchData(user);
@@ -75,14 +78,12 @@ const App: React.FC = () => {
     setTickets([]);
   };
 
-  // 4. Create Ticket
   const handleCreateTicket = async (ticket: Ticket) => {
     if (!currentUser) return;
     
     try {
         await DataManager.addTicket(ticket);
-        const updatedTickets = await DataManager.getTickets();
-        setTickets(updatedTickets);
+        await fetchData(currentUser);
         showNotification("Chamado registrado com sucesso!");
         setCurrentView('dashboard');
     } catch (error) {
@@ -91,12 +92,10 @@ const App: React.FC = () => {
     }
   };
 
-  // 5. Update/Resolve Ticket
   const handleResolveTicket = async (updatedTicket: Ticket) => {
     try {
         await DataManager.updateTicket(updatedTicket);
-        const updatedTickets = await DataManager.getTickets();
-        setTickets(updatedTickets);
+        if (currentUser) await fetchData(currentUser);
         const msg = updatedTicket.status === TicketStatus.CLOSED ? 'Chamado fechado.' : `Chamado TASK-${updatedTicket.taskId} atualizado.`;
         showNotification(msg);
     } catch (error) {
@@ -105,7 +104,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 6. Delete Ticket
   const handleDeleteTicket = async (ticketId: string) => {
     try {
       await DataManager.deleteTicket(ticketId);
@@ -117,14 +115,11 @@ const App: React.FC = () => {
     }
   };
 
-  // Logic to Enforce Password Change
   const handleForcePasswordChange = async (newPassword: string) => {
     if (!currentUser) return;
 
     try {
         await DataManager.changePassword(currentUser.username, newPassword);
-        
-        // Update Local State
         setCurrentUser(prev => prev ? ({ ...prev, mustChangePassword: false }) : null);
         showNotification("Senha atualizada com sucesso!");
     } catch (error: any) {
@@ -141,9 +136,7 @@ const App: React.FC = () => {
       try {
           await DataManager.addUser(newUserProfile, password);
           showNotification(`Usuário "${newUserProfile.username}" criado com sucesso!`);
-          
-          const updatedUsers = await DataManager.getUsers();
-          setUsers(updatedUsers);
+          if (currentUser) await fetchData(currentUser);
       } catch (err: any) {
           console.error("Error creating user:", err);
           showNotification(`Erro no cadastro: ${err.message}`);
@@ -154,8 +147,7 @@ const App: React.FC = () => {
      try {
          await DataManager.deleteUser(userId);
          showNotification("Usuário removido.");
-         const updatedUsers = await DataManager.getUsers();
-         setUsers(updatedUsers);
+         if (currentUser) await fetchData(currentUser);
      } catch (error) {
          showNotification("Erro ao remover usuário.");
      }
@@ -169,17 +161,18 @@ const App: React.FC = () => {
   if (sessionLoading) {
       return (
           <div className="h-screen flex items-center justify-center bg-slate-50">
-              <Loader2 className="w-8 h-8 text-indigo-600 animate-spin" />
+              <div className="text-center">
+                  <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mx-auto mb-4" />
+                  <p className="text-slate-500 font-medium">Validando sessão...</p>
+              </div>
           </div>
       );
   }
 
-  // If no user is logged in, show Login Page
   if (!currentUser) {
     return <LoginPage onLoginSuccess={handleLoginSuccess} />;
   }
 
-  // FORCE PASSWORD CHANGE SCREEN
   if (currentUser.mustChangePassword) {
       return (
           <>
@@ -207,7 +200,6 @@ const App: React.FC = () => {
       />
 
       <main className="flex-1 flex flex-col h-full overflow-hidden relative w-full">
-        {/* Mobile Header */}
         <header className="md:hidden bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between z-20 sticky top-0">
             <span className="font-bold text-gray-800 text-lg">Diario de Bordo</span>
             <button 
@@ -218,40 +210,63 @@ const App: React.FC = () => {
             </button>
         </header>
 
-        {/* Top Bar with User Info - Desktop only */}
-        <div className="hidden md:flex justify-end items-center px-8 py-3 bg-white border-b border-gray-100 gap-4">
-             {/* Config Info */}
-             {isSupabaseConfigured ? (
-                 <div className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded font-bold flex items-center gap-1 border border-blue-100">
-                     <Cloud className="w-3 h-3" />
-                     Online (Supabase)
-                 </div>
-             ) : (
-                 <div className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded font-bold flex items-center gap-1">
-                     <AlertTriangle className="w-3 h-3" />
-                     Desconectado
-                 </div>
-             )}
-             
-             <div className="text-right">
-                <p className="text-sm font-bold text-gray-800">{currentUser.name}</p>
-                <div className="flex items-center justify-end gap-1">
-                    <div className={`w-2 h-2 rounded-full ${currentUser.nivel === 'Admin' ? 'bg-purple-500' : 'bg-blue-500'}`}></div>
-                    <p className="text-xs text-gray-500 uppercase tracking-wider">{currentUser.nivel}</p>
-                </div>
+        <div className="hidden md:flex justify-between items-center px-8 py-3 bg-white border-b border-gray-100 gap-4">
+             <div className="flex items-center gap-4">
+                {isSupabaseConfigured ? (
+                    <div className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded font-bold flex items-center gap-1 border border-blue-100">
+                        <Cloud className="w-3 h-3" />
+                        Online (Cloud)
+                    </div>
+                ) : (
+                    <div className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded font-bold flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" />
+                        Desconectado
+                    </div>
+                )}
+                {dataLoading && (
+                    <div className="flex items-center gap-2 text-xs text-indigo-600 font-medium">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        Sincronizando...
+                    </div>
+                )}
              </div>
-             <button 
-               onClick={handleLogout}
-               className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1 rounded transition-colors"
-             >
-               Sair
-             </button>
+             
+             <div className="flex items-center gap-6">
+                <button 
+                    onClick={() => fetchData(currentUser)} 
+                    className="p-2 text-gray-400 hover:text-indigo-600 transition-colors"
+                    title="Atualizar dados"
+                >
+                    <RefreshCw className={`w-4 h-4 ${dataLoading ? 'animate-spin' : ''}`} />
+                </button>
+                <div className="text-right">
+                    <p className="text-sm font-bold text-gray-800">{currentUser.name}</p>
+                    <div className="flex items-center justify-end gap-1">
+                        <div className={`w-2 h-2 rounded-full ${currentUser.nivel === 'Admin' ? 'bg-purple-500' : 'bg-blue-500'}`}></div>
+                        <p className="text-xs text-gray-500 uppercase tracking-wider">{currentUser.nivel}</p>
+                    </div>
+                </div>
+                <button 
+                  onClick={handleLogout}
+                  className="text-xs bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1 rounded transition-colors"
+                >
+                  Sair
+                </button>
+             </div>
         </div>
 
-        {/* Content Area - Responsive Padding */}
         <div className="flex-1 overflow-auto p-3 sm:p-4 md:p-8 relative w-full">
             
-            {/* Notification Toast */}
+            {globalError && (
+                <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <AlertTriangle className="w-5 h-5" />
+                        <span className="text-sm font-medium">{globalError}</span>
+                    </div>
+                    <button onClick={() => fetchData(currentUser)} className="text-xs font-bold underline hover:no-underline">Tentar novamente</button>
+                </div>
+            )}
+
             {notification && (
                 <div className="absolute top-4 left-4 right-4 md:left-auto md:right-4 z-50 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg animate-in slide-in-from-top-2 fade-in duration-300 flex items-center gap-2 justify-center md:justify-start">
                     <div className="w-2 h-2 bg-green-400 rounded-full shrink-0"></div>
@@ -274,7 +289,6 @@ const App: React.FC = () => {
                 <Settings users={users} onAddUser={handleAddUser} onDeleteUser={handleDeleteUser} />
             )}
             
-            {/* Bottom spacer for mobile scrolling */}
             <div className="h-10 md:h-0"></div>
         </div>
       </main>
