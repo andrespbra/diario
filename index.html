@@ -4,12 +4,14 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Diario de Bordo</title>
+    <title>Diário de Bordo</title>
     <script>
-      // Global Polyfill for process.env - Non-destructive to allow environment injection
-      window.process = window.process || { env: {} };
-      window.process.env = window.process.env || {};
-      if (!window.process.env.NODE_ENV) window.process.env.NODE_ENV = 'production';
+      // Polyfill resiliente - Preserva process.env se já existir
+      if (typeof window !== 'undefined') {
+        window.process = window.process || {};
+        window.process.env = window.process.env || {};
+        if (!window.process.env.NODE_ENV) window.process.env.NODE_ENV = 'production';
+      }
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -17,8 +19,8 @@
       body {
         font-family: 'Inter', sans-serif;
         background-color: #f3f4f6;
+        user-select: none; /* Previne seleção acidental em telas de toque */
       }
-      /* Custom Scrollbar for better mobile feel */
       ::-webkit-scrollbar {
         width: 6px;
         height: 6px;

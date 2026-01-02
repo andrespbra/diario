@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { User, Lock, ArrowRight, Headphones, Loader2, AlertCircle, Cloud, AlertTriangle } from 'lucide-react';
 import { DataManager } from '../services/dataManager';
 import { UserProfile } from '../types';
-import { isSupabaseConfigured } from '../lib/supabaseClient';
+import { isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from '../lib/supabaseClient';
 
 interface LoginPageProps {
     onLoginSuccess: (user: UserProfile) => void;
@@ -19,7 +19,11 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
     e.preventDefault();
     
     if (!isSupabaseConfigured) {
-      setError("Sistema indisponível: Erro na conexão com o banco de dados (Variáveis de ambiente ausentes).");
+      const missing = [];
+      if (!supabaseUrl || supabaseUrl.includes('placeholder')) missing.push('SUPABASE_URL');
+      if (!supabaseAnonKey || supabaseAnonKey.includes('placeholder')) missing.push('SUPABASE_ANON_KEY');
+      
+      setError(`Configuração ausente: ${missing.join(', ')}. Adicione estas variáveis de ambiente.`);
       return;
     }
 
@@ -46,22 +50,25 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-indigo-600 mb-2 shadow-lg shadow-indigo-500/30">
                     <Headphones className="w-6 h-6 text-white" />
                 </div>
-                <h1 className="text-2xl font-bold text-white tracking-tight">Diario de Bordo</h1>
+                <h1 className="text-2xl font-bold text-white tracking-tight">Diário de Bordo</h1>
                 <p className="text-gray-400 text-sm">
                     Acesso Seguro (Cloud Online)
                 </p>
              </div>
 
              {!isSupabaseConfigured && (
-                <div className="bg-amber-500/10 border border-amber-500/50 rounded-lg p-3 flex items-start gap-2 text-amber-200 text-sm">
-                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                    <span className="leading-snug">Atenção: O sistema está em modo demonstração local pois o Supabase não foi configurado.</span>
+                <div className="bg-amber-500/10 border border-amber-500/50 rounded-lg p-3 flex items-start gap-2 text-amber-200 text-sm animate-pulse">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
+                    <div className="space-y-1">
+                        <p className="font-bold">Atenção: Variáveis não detectadas!</p>
+                        <p className="text-xs opacity-80">Verifique se as chaves SUPABASE_URL e SUPABASE_ANON_KEY foram configuradas nas variáveis de ambiente.</p>
+                    </div>
                 </div>
              )}
 
              {error && (
                 <div className="bg-red-500/10 border border-red-500/50 rounded-lg p-3 flex items-start gap-2 text-red-200 text-sm">
-                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
                     <span className="leading-snug">{error}</span>
                 </div>
              )}
@@ -110,13 +117,13 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
              
              <div className="pt-2 border-t border-gray-800/50">
                  <div className="mt-2 flex items-center justify-center gap-2 text-xs text-gray-500">
-                     <Cloud className="w-3 h-3" /> {isSupabaseConfigured ? 'Conectado ao Supabase' : 'Offline Mode'}
+                     <Cloud className="w-3 h-3" /> {isSupabaseConfigured ? 'Pronto para conectar' : 'Modo Diagnóstico'}
                  </div>
              </div>
           </div>
           
           <div className="bg-[#111827] px-8 py-4 border-t border-gray-800 text-center">
-             <p className="text-gray-500 text-xs font-medium tracking-wide">© 2025 Diario de Bordo. Todos os direitos reservados.</p>
+             <p className="text-gray-500 text-xs font-medium tracking-wide">© 2025 Diário de Bordo. Sistema Técnico.</p>
           </div>
        </div>
     </div>
