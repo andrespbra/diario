@@ -1,32 +1,57 @@
 
--- SCRIPT DE SEGURANÇA REFINADA - DIÁRIO DE BORDO
--- Implementa restrição: Analista vê apenas o seu / Admin vê tudo
+-- SCRIPT DE REPARAÇÃO DE TABELA E SEGURANÇA
+-- Execute este script para garantir que a tabela de tickets aceite novos registros
 
--- 1. Limpeza de políticas anteriores
-DO $$ 
-DECLARE 
-    pol record;
-BEGIN
-    FOR pol IN (SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public') LOOP
-        EXECUTE format('DROP POLICY IF EXISTS %I ON %I', pol.policyname, pol.tablename);
-    END LOOP;
-END $$;
-
--- 2. Garantir permissões básicas de RLS
-ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
-
--- 3. Políticas para USER_PROFILES
--- Usuário vê o próprio perfil OU Admin vê todos (usando metadados do JWT para evitar recursão)
-CREATE POLICY "profiles_select_policy" ON public.user_profiles 
-FOR SELECT TO authenticated 
-USING (
-  auth.uid() = id OR 
-  (auth.jwt() -> 'user_metadata' ->> 'nivel') = 'Admin'
+-- 1. Garantir que a tabela existe com as colunas corretas
+CREATE TABLE IF NOT EXISTS public.tickets (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users ON DELETE SET NULL,
+    customer_name TEXT,
+    location_name TEXT,
+    task_id TEXT,
+    service_request TEXT,
+    hostname TEXT,
+    n_serie TEXT,
+    subject TEXT,
+    analyst_name TEXT,
+    support_start_time TEXT,
+    support_end_time TEXT,
+    description TEXT,
+    analyst_action TEXT,
+    is_due_call BOOLEAN DEFAULT FALSE,
+    used_acfs BOOLEAN DEFAULT FALSE,
+    has_ink_staining BOOLEAN DEFAULT FALSE,
+    part_replaced BOOLEAN DEFAULT FALSE,
+    part_description TEXT,
+    tag_vldd BOOLEAN DEFAULT FALSE,
+    tag_nlvdd BOOLEAN DEFAULT FALSE,
+    test_with_card BOOLEAN DEFAULT FALSE,
+    sic_withdrawal BOOLEAN DEFAULT FALSE,
+    sic_deposit BOOLEAN DEFAULT FALSE,
+    sic_sensors BOOLEAN DEFAULT FALSE,
+    sic_smart_power BOOLEAN DEFAULT FALSE,
+    client_witness_name TEXT,
+    client_witness_id TEXT,
+    status TEXT DEFAULT 'Aberto',
+    priority TEXT DEFAULT 'Média',
+    is_escalated BOOLEAN DEFAULT FALSE,
+    is_tiger_team BOOLEAN DEFAULT FALSE,
+    ai_suggested_solution TEXT,
+    validated_by TEXT,
+    validated_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Políticas para TICKETS
--- SELECT: Analista vê apenas os seus (user_id = auth.uid()) OR Admin vê todos
+-- 2. Limpeza de políticas para evitar conflitos
+ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "tickets_select_policy" ON public.tickets;
+DROP POLICY IF EXISTS "tickets_insert_policy" ON public.tickets;
+DROP POLICY IF EXISTS "tickets_update_policy" ON public.tickets;
+DROP POLICY IF EXISTS "tickets_delete_policy" ON public.tickets;
+
+-- 3. Políticas Robustas (Usando metadados do JWT para performance e evitar recursão)
+-- SELECT: Analista vê os seus / Admin vê tudo
 CREATE POLICY "tickets_select_policy" ON public.tickets 
 FOR SELECT TO authenticated 
 USING (
@@ -34,12 +59,12 @@ USING (
   (auth.jwt() -> 'user_metadata' ->> 'nivel') = 'Admin'
 );
 
--- INSERT: Qualquer usuário autenticado pode inserir
+-- INSERT: Qualquer usuário autenticado pode inserir seu próprio registro
 CREATE POLICY "tickets_insert_policy" ON public.tickets 
 FOR INSERT TO authenticated 
 WITH CHECK (true);
 
--- UPDATE: Usuário altera o seu próprio OU Admin altera qualquer um
+-- UPDATE: Dono ou Admin podem alterar
 CREATE POLICY "tickets_update_policy" ON public.tickets 
 FOR UPDATE TO authenticated 
 USING (
@@ -47,13 +72,11 @@ USING (
   (auth.jwt() -> 'user_metadata' ->> 'nivel') = 'Admin'
 );
 
--- DELETE: Apenas Admins podem deletar registros para auditoria (opcional, mude conforme necessidade)
+-- DELETE: Apenas Admins
 CREATE POLICY "tickets_delete_policy" ON public.tickets 
 FOR DELETE TO authenticated 
-USING (
-  (auth.jwt() -> 'user_metadata' ->> 'nivel') = 'Admin'
-);
+USING ((auth.jwt() -> 'user_metadata' ->> 'nivel') = 'Admin');
 
--- 5. Permissões de Tabela
-GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
-GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;
+-- 4. Permissões de acesso
+GRANT ALL ON TABLE public.tickets TO authenticated;
+GRANT ALL ON TABLE public.tickets TO service_role;

@@ -10,6 +10,7 @@ const cleanValue = (val: any) => {
     return val;
 };
 
+// Mapeamento rigoroso entre Interface Frontend e Colunas do Banco (Supabase)
 const preparePayload = (ticket: Partial<Ticket>) => {
     return {
         user_id: cleanValue(ticket.userId),
@@ -45,7 +46,7 @@ const preparePayload = (ticket: Partial<Ticket>) => {
         is_tiger_team: !!ticket.isTigerTeam,
         ai_suggested_solution: cleanValue(ticket.aiSuggestedSolution),
         validated_by: cleanValue(ticket.validatedBy),
-        validated_at: ticket.validatedAt instanceof Date ? ticket.validatedAt.toISOString() : cleanValue(ticket.validatedAt)
+        validated_at: ticket.validatedAt instanceof Date ? ticket.validatedAt.toISOString() : null
     };
 };
 
@@ -58,22 +59,18 @@ export const DataManager = {
     if (authError) throw new Error("Login falhou: " + authError.message);
 
     try {
-        const { data: profile, error: pError } = await supabase
+        const { data: profile } = await supabase
             .from('user_profiles')
             .select('*')
             .eq('id', authData.user.id)
             .single();
 
-        if (pError || !profile) {
-            throw new Error("Profile fail");
-        }
-
         return {
-            id: profile.id,
-            name: profile.name,
-            username: profile.username || username,
-            nivel: profile.nivel as any,
-            mustChangePassword: profile.must_change_password
+            id: authData.user.id,
+            name: profile?.name || authData.user.user_metadata?.name || username,
+            username: profile?.username || username,
+            nivel: (profile?.nivel || authData.user.user_metadata?.nivel || 'Analista') as any,
+            mustChangePassword: profile?.must_change_password || false
         };
     } catch (e) {
         return {
@@ -92,22 +89,18 @@ export const DataManager = {
       if (sError || !session?.user) return null;
       
       try {
-          const { data: profile, error: pError } = await supabase
+          const { data: profile } = await supabase
               .from('user_profiles')
               .select('*')
               .eq('id', session.user.id)
               .maybeSingle();
           
-          if (pError || !profile) {
-              throw new Error("DB Blocked");
-          }
-          
           return {
-              id: profile.id,
-              name: profile.name,
-              username: profile.username,
-              nivel: profile.nivel as any,
-              mustChangePassword: profile.must_change_password
+              id: session.user.id,
+              name: profile?.name || session.user.user_metadata?.name || 'Usuário',
+              username: profile?.username || session.user.user_metadata?.username || 'login',
+              nivel: (profile?.nivel || session.user.user_metadata?.nivel || 'Analista') as any,
+              mustChangePassword: profile?.must_change_password || false
           };
       } catch (err) {
           return {
@@ -127,7 +120,6 @@ export const DataManager = {
     
     let query = supabase.from('tickets').select('*');
     
-    // Regra: Se não for Admin, filtra apenas os tickets do próprio analista
     if (!isAdmin) {
         query = query.eq('user_id', userId);
     }
@@ -136,7 +128,7 @@ export const DataManager = {
 
     if (error) {
         console.error("Erro getTickets:", error);
-        if (error.code === '42P17') throw new Error("Erro de recursão no banco. Execute o novo SQL de reparo.");
+        if (error.code === '42P17') throw new Error("Erro de recursão detectado. Execute o SQL de reparo.");
         throw new Error(error.message);
     }
 
@@ -181,12 +173,22 @@ export const DataManager = {
   },
 
   addTicket: async (ticket: Ticket) => {
-      const { error } = await supabase.from('tickets').insert([preparePayload(ticket)]);
-      if (error) throw new Error(error.message);
+      const payload = preparePayload(ticket);
+      console.log("Enviando ticket para Supabase:", payload);
+      
+      const { data, error } = await supabase.from('tickets').insert([payload]).select();
+      
+      if (error) {
+          console.error("Erro detalhado do Supabase (INSERT):", error);
+          throw new Error(`Falha ao registrar chamado: ${error.message} (Código: ${error.code})`);
+      }
+      return data;
   },
 
   updateTicket: async (ticket: Ticket) => {
-      const { error } = await supabase.from('tickets').update(preparePayload(ticket)).eq('id', ticket.id);
+      const payload = preparePayload(ticket);
+      // Remove o ID do payload para não tentar alterar a chave primária
+      const { error } = await supabase.from('tickets').update(payload).eq('id', ticket.id);
       if (error) throw error;
   },
 

@@ -52,7 +52,6 @@ const App: React.FC = () => {
       setDataLoading(true);
       setGlobalError(null);
       try {
-        // Passa o ID do usuário e flag de Admin para o DataManager
         const ticketData = await DataManager.getTickets(user.id, user.nivel === 'Admin');
         setTickets(ticketData);
         
@@ -87,11 +86,17 @@ const App: React.FC = () => {
     if (!currentUser) return;
     try {
         await DataManager.addTicket(ticket);
-        await fetchData(currentUser);
         showNotification("Chamado registrado com sucesso!");
         setCurrentView('dashboard');
+        // Tenta atualizar a lista, mas não trava o usuário se der erro no refresh
+        try {
+            await fetchData(currentUser);
+        } catch (fetchErr) {
+            console.warn("Ticket salvo, mas falha ao atualizar lista.");
+        }
     } catch (error: any) {
-        console.error(error);
+        console.error("Erro ao criar ticket:", error);
+        alert(`Erro Crítico ao Salvar: ${error.message}\n\nVerifique se você executou o SQL de reparo no Supabase.`);
         showNotification(`Erro ao salvar: ${error.message}`);
     }
   };
