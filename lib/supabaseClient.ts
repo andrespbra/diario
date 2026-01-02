@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 
 // Safe access to environment variables
@@ -12,6 +13,10 @@ const getEnvVar = (key: string, viteKey: string) => {
     if (!value && typeof process !== 'undefined' && process.env) {
       value = process.env[key] || '';
     }
+    // Global fallback
+    if (!value && typeof window !== 'undefined') {
+        value = (window as any)._env_?.[key] || '';
+    }
   } catch (e) {
     console.warn('Error reading env vars', e);
   }
@@ -21,7 +26,7 @@ const getEnvVar = (key: string, viteKey: string) => {
 const url = getEnvVar('SUPABASE_URL', 'VITE_SUPABASE_URL');
 const key = getEnvVar('SUPABASE_ANON_KEY', 'VITE_SUPABASE_ANON_KEY');
 
-export const isSupabaseConfigured = !!url && url !== 'https://placeholder.supabase.co' && !url.includes('placeholder');
+export const isSupabaseConfigured = !!url && url.length > 20 && !url.includes('placeholder');
 
 export const supabaseUrl = url || 'https://placeholder.supabase.co';
 export const supabaseAnonKey = key || 'placeholder-key';

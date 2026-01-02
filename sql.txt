@@ -52,59 +52,57 @@ CREATE TABLE IF NOT EXISTS public.tickets (
 );
 
 -- ==========================================
--- 2. POLÍTICAS DE SEGURANÇA (RLS) - CRUCIAL
+-- 2. POLÍTICAS DE SEGURANÇA (RLS) - REVISADAS
 -- ==========================================
 
--- Habilitar RLS nas tabelas
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
 
--- POLÍTICAS PARA USER_PROFILES
-DROP POLICY IF EXISTS "Usuários podem ver o próprio perfil" ON public.user_profiles;
-CREATE POLICY "Usuários podem ver o próprio perfil" 
+-- PERFIS: Qualquer autenticado vê os perfis (necessário para joins e validações)
+DROP POLICY IF EXISTS "Perfis visíveis para autenticados" ON public.user_profiles;
+CREATE POLICY "Perfis visíveis para autenticados" 
 ON public.user_profiles FOR SELECT 
+TO authenticated 
+USING (true);
+
+DROP POLICY IF EXISTS "Usuários atualizam próprio perfil" ON public.user_profiles;
+CREATE POLICY "Usuários atualizam próprio perfil" 
+ON public.user_profiles FOR UPDATE 
 TO authenticated 
 USING (auth.uid() = id);
 
-DROP POLICY IF EXISTS "Admins podem ver todos os perfis" ON public.user_profiles;
-CREATE POLICY "Admins podem ver todos os perfis" 
-ON public.user_profiles FOR SELECT 
-TO authenticated 
-USING (EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND nivel = 'Admin'));
-
--- POLÍTICAS PARA TICKETS
-DROP POLICY IF EXISTS "Analistas veem seus tickets ou Tiger Team" ON public.tickets;
-CREATE POLICY "Analistas veem seus tickets ou Tiger Team" 
+-- TICKETS: Leitura Total (Para que a triagem N2 e Tiger Team funcione para todos)
+DROP POLICY IF EXISTS "Tickets visíveis para todos os autenticados" ON public.tickets;
+CREATE POLICY "Tickets visíveis para todos os autenticados" 
 ON public.tickets FOR SELECT 
 TO authenticated 
-USING (
-  user_id = auth.uid() OR 
-  is_tiger_team = true OR 
-  is_escalated = true OR
-  EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND nivel = 'Admin')
-);
+USING (true);
 
-DROP POLICY IF EXISTS "Usuários podem inserir seus próprios tickets" ON public.tickets;
-CREATE POLICY "Usuários podem inserir seus próprios tickets" 
+-- TICKETS: Inserção (Apenas o próprio usuário)
+DROP POLICY IF EXISTS "Inserção de tickets próprios" ON public.tickets;
+CREATE POLICY "Inserção de tickets próprios" 
 ON public.tickets FOR INSERT 
 TO authenticated 
-WITH CHECK (user_id = auth.uid());
+WITH CHECK (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Usuários podem atualizar seus próprios tickets" ON public.tickets;
-CREATE POLICY "Usuários podem atualizar seus próprios tickets" 
+-- TICKETS: Atualização (Dono, N2 em chamados escalonados ou Admin)
+DROP POLICY IF EXISTS "Atualização de tickets autorizada" ON public.tickets;
+CREATE POLICY "Atualização de tickets autorizada" 
 ON public.tickets FOR UPDATE 
 TO authenticated 
 USING (
-  user_id = auth.uid() OR 
-  is_escalated = true OR
+  auth.uid() = user_id OR 
+  is_escalated = true OR 
+  is_tiger_team = true OR
   EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND nivel = 'Admin')
 );
 
-DROP POLICY IF EXISTS "Apenas Admins ou Donos deletam" ON public.tickets;
-CREATE POLICY "Apenas Admins ou Donos deletam" 
+-- TICKETS: Deleção (Dono ou Admin)
+DROP POLICY IF EXISTS "Deleção de tickets autorizada" ON public.tickets;
+CREATE POLICY "Deleção de tickets autorizada" 
 ON public.tickets FOR DELETE 
 TO authenticated 
 USING (
-  user_id = auth.uid() OR 
+  auth.uid() = user_id OR 
   EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND nivel = 'Admin')
 );
