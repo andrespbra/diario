@@ -1,15 +1,18 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Tenta obter as chaves de forma direta
-const url = (import.meta as any).env?.VITE_SUPABASE_URL || (process as any).env?.SUPABASE_URL || '';
-const key = (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || (process as any).env?.SUPABASE_ANON_KEY || '';
+const getEnv = (key: string) => {
+    if (typeof window !== 'undefined' && (window as any).process?.env?.[key]) return (window as any).process.env[key];
+    if (typeof process !== 'undefined' && process.env?.[key]) return process.env[key];
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env?.[`VITE_${key}`]) return import.meta.env[`VITE_${key}`];
+    return '';
+};
+
+const url = getEnv('SUPABASE_URL');
+const key = getEnv('SUPABASE_ANON_KEY');
 
 export const isSupabaseConfigured = !!url && url.startsWith('http') && key.length > 20;
-
-if (!isSupabaseConfigured) {
-    console.warn("⚠️ Supabase: URL ou ANON_KEY não configuradas. O app funcionará em modo demonstração local limitado.");
-}
 
 export const supabaseUrl = url || 'https://placeholder.supabase.co';
 export const supabaseAnonKey = key || 'placeholder';
