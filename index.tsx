@@ -1,12 +1,12 @@
 
-// Fix: Import Component, ErrorInfo, and ReactNode directly from react for better type recognition
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+// Fix: Use standard React imports and explicit namespace references to avoid shadowing and ensure type safety
+import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 
-// Define interfaces for Props and State to resolve 'state' and 'props' property existence errors
+// Define interfaces for Props and State
 interface ErrorBoundaryProps {
-  children?: ReactNode;
+  children?: React.ReactNode;
 }
 
 interface ErrorBoundaryState {
@@ -14,29 +14,35 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Fix: Use Component directly to ensure proper inheritance and type recognition of 'props' and 'state'
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+// Fix: Use React.Component explicitly and declare state/props properties to ensure they are correctly recognized by TypeScript.
+// This addresses errors where 'state' and 'props' were reported as missing on the ErrorBoundary type.
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Fix: Explicitly declare the state and props properties to satisfy TypeScript checks on the instance.
+  // This resolves errors: Property 'state' does not exist on type 'ErrorBoundary' and Property 'props' does not exist on type 'ErrorBoundary'.
+  public state: ErrorBoundaryState;
+  public readonly props: ErrorBoundaryProps;
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    // Fix: Explicitly initialize state in the constructor for maximum type compatibility
+    // Fix: Correctly initialize state on the instance
     this.state = {
       hasError: false,
       error: null,
     };
   }
 
-  // Fix: Correctly type the static method to return ErrorBoundaryState for React's error boundary logic
+  // Fix: Static method for error boundary state update
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
   }
 
-  // Fix: Use ErrorInfo type for componentDidCatch to handle errors gracefully
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+  // Fix: Use React.ErrorInfo for the catch-all error handling logic
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error("Uncaught error:", error, errorInfo);
   }
 
   render() {
-    // Fix: Access state properties safely using standard React component pattern after inheritance fix
+    // Fix: Access this.state safely within the render method after ensuring proper property declaration
     if (this.state.hasError) {
       return (
         <div style={{ padding: '20px', fontFamily: 'sans-serif', color: '#333', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', textAlign: 'center' }}>
@@ -64,7 +70,7 @@ class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
       );
     }
 
-    // Fix: Access this.props.children correctly after ensuring proper inheritance from the base Component class
+    // Fix: Access this.props correctly to return children as expected for a wrapper component
     return this.props.children || null;
   }
 }

@@ -1,10 +1,8 @@
 
--- 1. Estrutura do Banco de Dados (Correção de Colunas)
-
--- Habilita extensão para UUIDs
+-- 1. Estrutura do Banco de Dados
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Cria a tabela se não existir
+-- Tabelas principais (User Profiles)
 CREATE TABLE IF NOT EXISTS public.user_profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   name TEXT NOT NULL,
@@ -13,88 +11,100 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
   must_change_password BOOLEAN DEFAULT true
 );
 
--- Adiciona a coluna must_change_password se a tabela já existir mas a coluna não
-DO $$
-BEGIN
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_profiles' AND column_name = 'must_change_password') THEN
-        ALTER TABLE public.user_profiles ADD COLUMN must_change_password BOOLEAN DEFAULT true;
-    END IF;
-END $$;
-
 -- Tabela de Chamados
 CREATE TABLE IF NOT EXISTS public.tickets (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES public.user_profiles(id),
-  
-  -- Informações do Cliente/Local
   customer_name TEXT,
   location_name TEXT,
-  
-  -- Detalhes Técnicos
   task_id TEXT,
   service_request TEXT,
   hostname TEXT,
-  n_serie TEXT, -- Número de Série
+  n_serie TEXT,
   subject TEXT,
-  
-  -- Detalhes do Suporte
   analyst_name TEXT,
   support_start_time TIMESTAMPTZ,
   support_end_time TIMESTAMPTZ,
   description TEXT,
   analyst_action TEXT,
-  
-  -- Validadores e Peças
   is_due_call BOOLEAN DEFAULT false,
   used_acfs BOOLEAN DEFAULT false,
   has_ink_staining BOOLEAN DEFAULT false,
   part_replaced BOOLEAN DEFAULT false,
   part_description TEXT,
-  
-  -- Tags
   tag_vldd BOOLEAN DEFAULT false,
   tag_nlvdd BOOLEAN DEFAULT false,
-  
-  -- Validação Extra
   test_with_card BOOLEAN DEFAULT false,
   sic_withdrawal BOOLEAN DEFAULT false,
   sic_deposit BOOLEAN DEFAULT false,
   sic_sensors BOOLEAN DEFAULT false,
   sic_smart_power BOOLEAN DEFAULT false,
-  
-  -- Testemunha
   client_witness_name TEXT,
   client_witness_id TEXT,
-  
-  -- Validação
   validated_by TEXT,
   validated_at TIMESTAMPTZ,
-  
-  -- AI e Status
   ai_suggested_solution TEXT,
   status TEXT,
   priority TEXT,
   is_escalated BOOLEAN DEFAULT false,
   is_tiger_team BOOLEAN DEFAULT false,
-  
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Garantia de colunas (Idempotente)
-DO $$
-BEGIN
-    -- Coluna is_tiger_team
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tickets' AND column_name = 'is_tiger_team') THEN
-        ALTER TABLE public.tickets ADD COLUMN is_tiger_team BOOLEAN DEFAULT false;
-    END IF;
-    
-    -- Coluna n_serie
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tickets' AND column_name = 'n_serie') THEN
-        ALTER TABLE public.tickets ADD COLUMN n_serie TEXT;
-    END IF;
+-- ==========================================
+-- 2. POLÍTICAS DE SEGURANÇA (RLS) - CRUCIAL
+-- ==========================================
 
-    -- Coluna subject (Caso falte)
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'tickets' AND column_name = 'subject') THEN
-        ALTER TABLE public.tickets ADD COLUMN subject TEXT;
-    END IF;
-END $$;
+-- Habilitar RLS nas tabelas
+ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
+
+-- POLÍTICAS PARA USER_PROFILES
+DROP POLICY IF EXISTS "Usuários podem ver o próprio perfil" ON public.user_profiles;
+CREATE POLICY "Usuários podem ver o próprio perfil" 
+ON public.user_profiles FOR SELECT 
+TO authenticated 
+USING (auth.uid() = id);
+
+DROP POLICY IF EXISTS "Admins podem ver todos os perfis" ON public.user_profiles;
+CREATE POLICY "Admins podem ver todos os perfis" 
+ON public.user_profiles FOR SELECT 
+TO authenticated 
+USING (EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND nivel = 'Admin'));
+
+-- POLÍTICAS PARA TICKETS
+DROP POLICY IF EXISTS "Analistas veem seus tickets ou Tiger Team" ON public.tickets;
+CREATE POLICY "Analistas veem seus tickets ou Tiger Team" 
+ON public.tickets FOR SELECT 
+TO authenticated 
+USING (
+  user_id = auth.uid() OR 
+  is_tiger_team = true OR 
+  is_escalated = true OR
+  EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND nivel = 'Admin')
+);
+
+DROP POLICY IF EXISTS "Usuários podem inserir seus próprios tickets" ON public.tickets;
+CREATE POLICY "Usuários podem inserir seus próprios tickets" 
+ON public.tickets FOR INSERT 
+TO authenticated 
+WITH CHECK (user_id = auth.uid());
+
+DROP POLICY IF EXISTS "Usuários podem atualizar seus próprios tickets" ON public.tickets;
+CREATE POLICY "Usuários podem atualizar seus próprios tickets" 
+ON public.tickets FOR UPDATE 
+TO authenticated 
+USING (
+  user_id = auth.uid() OR 
+  is_escalated = true OR
+  EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND nivel = 'Admin')
+);
+
+DROP POLICY IF EXISTS "Apenas Admins ou Donos deletam" ON public.tickets;
+CREATE POLICY "Apenas Admins ou Donos deletam" 
+ON public.tickets FOR DELETE 
+TO authenticated 
+USING (
+  user_id = auth.uid() OR 
+  EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND nivel = 'Admin')
+);

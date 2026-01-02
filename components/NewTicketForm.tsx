@@ -24,7 +24,16 @@ const SUBJECT_OPTIONS = [
 ];
 
 export const NewTicketForm: React.FC<NewTicketFormProps> = ({ onSubmit, currentUser }) => {
-  const getCurrentDateTime = () => new Date().toISOString().slice(0, 16);
+  // Função corrigida para retornar o horário LOCAL em formato YYYY-MM-DDTHH:mm
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  };
 
   const [formData, setFormData] = useState({
     customerName: '',
@@ -120,15 +129,19 @@ Final:  ${end}
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Se a IA sugeriu escalonamento ou o usuário marcou manualmente, o chamado é considerado escalonado
     const isEscalatedFinal = formData.isTigerTeam || formData.isEscalated || (aiSuggestion ? aiSuggestion.escalated : false);
     const priorityFinal = formData.isTigerTeam ? TicketPriority.CRITICAL : (isEscalatedFinal ? TicketPriority.CRITICAL : (aiSuggestion ? aiSuggestion.priority : TicketPriority.MEDIUM));
     
-    // LÓGICA DE STATUS REFINADA:
-    // Se for Tiger Team, entra como "Em Andamento" por padrão para acompanhamento.
-    // Se não for Tiger Team, usa a lógica de preenchimento de horário final.
     let initialStatus = TicketStatus.OPEN;
+    
+    // REGRAS DE STATUS:
     if (formData.isTigerTeam) {
         initialStatus = TicketStatus.IN_PROGRESS;
+    } else if (isEscalatedFinal) {
+        // Chamados escalonados para validação PRECISAM entrar como OPEN para aparecer na fila de validação,
+        // mesmo que o técnico de nível 1 tenha preenchido o horário de término da sua parte.
+        initialStatus = TicketStatus.OPEN;
     } else if (formData.supportEndTime) {
         initialStatus = TicketStatus.RESOLVED;
     }

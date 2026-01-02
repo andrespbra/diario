@@ -5,8 +5,6 @@ import { Ticket, UserProfile, TicketStatus, TicketPriority } from '../types';
 
 const VIRTUAL_DOMAIN = '@sys.local';
 
-// Função robusta para limpar valores antes de enviar ao Postgres
-// Converte strings vazias ou undefined em NULL, evitando erros de tipo
 const cleanValue = (val: any) => {
     if (val === undefined || val === null) return null;
     if (typeof val === 'string' && val.trim() === '') return null;
@@ -21,7 +19,7 @@ const preparePayload = (ticket: Partial<Ticket>) => {
         task_id: cleanValue(ticket.taskId),
         service_request: cleanValue(ticket.serviceRequest),
         hostname: cleanValue(ticket.hostname),
-        n_serie: cleanValue(ticket.serialNumber), // Mapeamento crucial
+        n_serie: cleanValue(ticket.serialNumber),
         subject: cleanValue(ticket.subject),
         analyst_name: cleanValue(ticket.analystName),
         support_start_time: cleanValue(ticket.supportStartTime),
@@ -45,7 +43,7 @@ const preparePayload = (ticket: Partial<Ticket>) => {
         status: cleanValue(ticket.status),
         priority: cleanValue(ticket.priority),
         is_escalated: !!ticket.isEscalated,
-        is_tiger_team: !!ticket.isTigerTeam, // Garante que o sinal crítico seja persistido como boolean
+        is_tiger_team: !!ticket.isTigerTeam,
         ai_suggested_solution: cleanValue(ticket.aiSuggestedSolution),
         validated_by: cleanValue(ticket.validatedBy),
         validated_at: ticket.validatedAt instanceof Date ? ticket.validatedAt.toISOString() : cleanValue(ticket.validatedAt)
@@ -53,23 +51,20 @@ const preparePayload = (ticket: Partial<Ticket>) => {
 };
 
 export const DataManager = {
-  // --- AUTHENTICATION ---
-  
   authenticate: async (username: string, password: string): Promise<UserProfile> => {
     if (!isSupabaseConfigured) {
-      throw new Error("Supabase não configurado. Verifique as variáveis de ambiente.");
+      throw new Error("Supabase não configurado.");
     }
 
     const email = username.includes('@') ? username : `${username}${VIRTUAL_DOMAIN}`;
     
-    // Fix: Cast supabase.auth to any to resolve signInWithPassword property existence error
     const { data: authData, error: authError } = await (supabase.auth as any).signInWithPassword({
         email,
         password
     });
 
     if (authError) throw new Error(authError.message === 'Invalid login credentials' ? 'Usuário ou senha incorretos' : authError.message);
-    if (!authData.user) throw new Error('Erro ao obter sessão de usuário.');
+    if (!authData.user) throw new Error('Erro ao obter sessão.');
 
     const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
@@ -99,7 +94,6 @@ export const DataManager = {
   getSession: async (): Promise<UserProfile | null> => {
       if (!isSupabaseConfigured) return null;
 
-      // Fix: Cast supabase.auth to any to resolve getSession property existence error
       const { data: { session } } = await (supabase.auth as any).getSession();
       if (!session?.user) return null;
 
@@ -122,11 +116,8 @@ export const DataManager = {
   },
 
   logout: async (): Promise<void> => {
-      // Fix: Cast supabase.auth to any to resolve signOut property existence error
       if (isSupabaseConfigured) await (supabase.auth as any).signOut();
   },
-
-  // --- USERS MANAGEMENT ---
 
   getUsers: async (): Promise<UserProfile[]> => {
     if (!isSupabaseConfigured) return [];
@@ -153,7 +144,6 @@ export const DataManager = {
           }
       });
 
-      // Fix: Cast tempClient.auth to any to resolve signUp property existence error
       const { error } = await (tempClient.auth as any).signUp({
           email: email,
           password: password || 'mudar123',
@@ -194,11 +184,9 @@ export const DataManager = {
 
   changePassword: async (username: string, newPass: string): Promise<void> => {
      if (!isSupabaseConfigured) return;
-     // Fix: Cast supabase.auth to any to resolve updateUser property existence error
      const { error: authError } = await (supabase.auth as any).updateUser({ password: newPass });
      if (authError) throw authError;
 
-     // Fix: Cast supabase.auth to any to resolve getUser property existence error
      const { data: { user } } = await (supabase.auth as any).getUser();
      if (user) {
          await supabase
@@ -208,12 +196,9 @@ export const DataManager = {
      }
   },
 
-  // --- TICKETS MANAGEMENT ---
-
   getTickets: async (): Promise<Ticket[]> => {
     if (!isSupabaseConfigured) return [];
     
-    // Fix: Cast supabase.auth to any to resolve getUser property existence error
     const { data: { user } } = await (supabase.auth as any).getUser();
     if (!user) return [];
 
@@ -231,12 +216,19 @@ export const DataManager = {
     const isAdmin = profile?.nivel === 'Admin';
 
     if (!isAdmin) {
-        // Analistas vêem seus próprios tickets OU qualquer ticket Tiger Team (visibilidade global para missões críticas)
-        query = query.or(`user_id.eq.${user.id},is_tiger_team.eq.true`);
+        // PostgREST or query: filtra os do próprio usuário OU os Tiger Team OU chamados escalonados para validação conjunta
+        query = query.or(`user_id.eq.${user.id},is_tiger_team.eq.true,is_escalated.eq.true`);
     }
 
     const { data, error } = await query;
-    if (error) throw error;
+    if (error) {
+        console.error("Erro Supabase:", error);
+        throw error;
+    }
+
+    if (!data || data.length === 0) {
+        return [];
+    }
 
     return data.map((t: any) => ({
         id: t.id,
@@ -291,7 +283,7 @@ export const DataManager = {
 
   updateTicket: async (updatedTicket: Ticket): Promise<void> => {
       if (!isSupabaseConfigured) return;
-      if (!updatedTicket.id) throw new Error("ID do chamado ausente para atualização.");
+      if (!updatedTicket.id) throw new Error("ID do chamado ausente.");
 
       const dbPayload = preparePayload(updatedTicket);
       
