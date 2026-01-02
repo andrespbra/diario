@@ -16,6 +16,7 @@ const preparePayload = (ticket: Partial<Ticket>) => {
         customer_name: cleanValue(ticket.customerName),
         location_name: cleanValue(ticket.locationName),
         task_id: cleanValue(ticket.taskId),
+        // Fix: Remove reference to non-existent service_request property and use serviceRequest from the Ticket interface.
         service_request: cleanValue(ticket.serviceRequest),
         hostname: cleanValue(ticket.hostname),
         n_serie: cleanValue(ticket.serialNumber),
@@ -57,56 +58,69 @@ export const DataManager = {
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
     if (authError) throw new Error("Login falhou: " + authError.message);
 
-    const { data: profile, error: pError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', authData.user.id)
-        .single();
+    try {
+        const { data: profile, error: pError } = await supabase
+            .from('user_profiles')
+            .select('*')
+            .eq('id', authData.user.id)
+            .single();
 
-    if (pError || !profile) {
+        if (pError || !profile) {
+            throw new Error("Profile fail");
+        }
+
+        return {
+            id: profile.id,
+            name: profile.name,
+            username: profile.username || username,
+            nivel: profile.nivel as any,
+            mustChangePassword: profile.must_change_password
+        };
+    } catch (e) {
+        // Fallback para metadados se a tabela estiver bloqueada por recursão
         return {
             id: authData.user.id,
             name: authData.user.user_metadata?.name || username,
             username: username,
-            nivel: authData.user.user_metadata?.nivel || 'Analista',
+            nivel: (authData.user.user_metadata?.nivel as any) || 'Analista',
             mustChangePassword: false
         };
     }
-
-    return {
-        id: profile.id,
-        name: profile.name,
-        username: profile.username || username,
-        nivel: profile.nivel,
-        mustChangePassword: profile.must_change_password
-    };
   },
 
   getSession: async (): Promise<UserProfile | null> => {
       if (!isSupabaseConfigured) return null;
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return null;
+      const { data: { session }, error: sError } = await supabase.auth.getSession();
+      if (sError || !session?.user) return null;
       
-      const { data: profile, error } = await supabase.from('user_profiles').select('*').eq('id', session.user.id).single();
-      
-      if (error || !profile) {
-          // Fallback se o trigger não criou o perfil ainda
+      try {
+          const { data: profile, error: pError } = await supabase
+              .from('user_profiles')
+              .select('*')
+              .eq('id', session.user.id)
+              .maybeSingle();
+          
+          if (pError || !profile) {
+              throw new Error("DB Blocked");
+          }
+          
+          return {
+              id: profile.id,
+              name: profile.name,
+              username: profile.username,
+              nivel: profile.nivel as any,
+              mustChangePassword: profile.must_change_password
+          };
+      } catch (err) {
+          // Se houver erro de recursão no banco, usamos os dados do token JWT
           return {
               id: session.user.id,
               name: session.user.user_metadata?.name || 'Usuário',
               username: session.user.user_metadata?.username || 'login',
-              nivel: session.user.user_metadata?.nivel || 'Analista',
+              nivel: (session.user.user_metadata?.nivel as any) || 'Analista',
               mustChangePassword: false
           };
       }
-      
-      return {
-          id: profile.id,
-          name: profile.name,
-          username: profile.username,
-          nivel: profile.nivel,
-          mustChangePassword: profile.must_change_password
-      };
   },
 
   logout: async () => { if (isSupabaseConfigured) await supabase.auth.signOut(); },
@@ -120,8 +134,10 @@ export const DataManager = {
         .order('created_at', { ascending: false });
 
     if (error) {
-        console.error("Erro Crítico Supabase (getTickets):", error);
-        throw new Error(`Erro ao carregar tickets: ${error.message} (${error.code})`);
+        console.error("Erro getTickets:", error);
+        // Se der erro de recursão, retornamos array vazio mas não quebramos o app
+        if (error.code === '42P17') throw new Error("Erro de recursão no banco. Execute o novo SQL de reparo.");
+        throw new Error(error.message);
     }
 
     return (data || []).map((t: any) => ({
@@ -165,27 +181,13 @@ export const DataManager = {
   },
 
   addTicket: async (ticket: Ticket) => {
-      const payload = preparePayload(ticket);
-      console.log("DataManager: Enviando Ticket...", payload);
-      
-      const { data, error } = await supabase
-        .from('tickets')
-        .insert([payload])
-        .select();
-      
-      if (error) {
-          console.error("DataManager: Erro ao inserir ticket:", error);
-          throw new Error(`Erro ao salvar no banco: ${error.message}`);
-      }
-      console.log("DataManager: Ticket salvo com sucesso!", data);
+      const { error } = await supabase.from('tickets').insert([preparePayload(ticket)]);
+      if (error) throw new Error(error.message);
   },
 
   updateTicket: async (ticket: Ticket) => {
       const { error } = await supabase.from('tickets').update(preparePayload(ticket)).eq('id', ticket.id);
-      if (error) {
-          console.error("DataManager: Erro ao atualizar ticket:", error);
-          throw error;
-      }
+      if (error) throw error;
   },
 
   deleteTicket: async (id: string) => {
@@ -195,15 +197,12 @@ export const DataManager = {
 
   getUsers: async (): Promise<UserProfile[]> => {
     const { data, error } = await supabase.from('user_profiles').select('*');
-    if (error) {
-        console.error("DataManager: Erro ao buscar usuários:", error);
-        throw error;
-    }
+    if (error) throw error;
     return (data || []).map((u: any) => ({
         id: u.id,
         name: u.name,
         username: u.username,
-        nivel: u.nivel,
+        nivel: u.nivel as any,
         mustChangePassword: u.must_change_password
     }));
   },

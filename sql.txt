@@ -1,17 +1,22 @@
 
--- SCRIPT DE REPARO TOTAL - DIÁRIO DE BORDO
--- Execute este script no SQL Editor do Supabase para limpar erros de recursão e criar as tabelas
+-- SCRIPT DE RESET TOTAL DE POLÍTICAS (CORREÇÃO ERRO 42P17)
+-- Execute isto para limpar loops infinitos de segurança
 
--- 1. Limpeza de Políticas Antigas (Evita Recursão Infinita)
-DROP POLICY IF EXISTS "allow_all_read_profiles" ON public.user_profiles;
-DROP POLICY IF EXISTS "allow_all_read_tickets" ON public.tickets;
-DROP POLICY IF EXISTS "allow_auth_insert_tickets" ON public.tickets;
-DROP POLICY IF EXISTS "allow_auth_update_tickets" ON public.tickets;
-DROP POLICY IF EXISTS "Profiles are viewable by authenticated users" ON public.user_profiles;
-DROP POLICY IF EXISTS "Tickets are viewable by authenticated users" ON public.tickets;
-DROP POLICY IF EXISTS "Users can insert their own tickets" ON public.tickets;
+-- 1. Desabilitar RLS temporariamente para garantir a limpeza
+ALTER TABLE IF EXISTS public.tickets DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.user_profiles DISABLE ROW LEVEL SECURITY;
 
--- 2. Garantir que as Tabelas existam
+-- 2. Remover TODAS as políticas conhecidas e possíveis
+DO $$ 
+DECLARE 
+    pol record;
+BEGIN
+    FOR pol IN (SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public') LOOP
+        EXECUTE format('DROP POLICY IF EXISTS %I ON %I', pol.policyname, pol.tablename);
+    END LOOP;
+END $$;
+
+-- 3. Garantir Estrutura das Tabelas
 CREATE TABLE IF NOT EXISTS public.user_profiles (
     id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
     name TEXT NOT NULL,
@@ -60,41 +65,22 @@ CREATE TABLE IF NOT EXISTS public.tickets (
     validated_at TIMESTAMPTZ
 );
 
--- 3. Habilitar Segurança (RLS)
+-- 4. Reabilitar Segurança
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
 
--- 4. Novas Políticas SIMPLES (Sem recursão)
--- Permite que qualquer usuário logado veja os perfis e os tickets
-CREATE POLICY "read_profiles" ON public.user_profiles FOR SELECT TO authenticated USING (true);
-CREATE POLICY "read_tickets" ON public.tickets FOR SELECT TO authenticated USING (true);
+-- 5. Criar Políticas SEM RECURSÃO (Diretas)
+-- PERFIL: Usuário só lê o próprio perfil (evita loop de admin)
+CREATE POLICY "policy_profiles_select" ON public.user_profiles FOR SELECT TO authenticated USING (auth.uid() = id);
 
--- Permite inserção de tickets por usuários logados
-CREATE POLICY "insert_tickets" ON public.tickets FOR INSERT TO authenticated WITH CHECK (true);
+-- TICKETS: Todos logados podem ver, inserir e editar (Segurança simplificada para Diário de Bordo)
+CREATE POLICY "policy_tickets_all_select" ON public.tickets FOR SELECT TO authenticated USING (true);
+CREATE POLICY "policy_tickets_all_insert" ON public.tickets FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "policy_tickets_all_update" ON public.tickets FOR UPDATE TO authenticated USING (true);
+CREATE POLICY "policy_tickets_all_delete" ON public.tickets FOR DELETE TO authenticated USING (true);
 
--- Permite atualização de tickets por usuários logados
-CREATE POLICY "update_tickets" ON public.tickets FOR UPDATE TO authenticated USING (true);
-
--- 5. Trigger de Perfil (Garante que o perfil exista ao logar)
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS trigger AS $$
-BEGIN
-  INSERT INTO public.user_profiles (id, name, username, nivel, must_change_password)
-  VALUES (
-    new.id, 
-    COALESCE(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)), 
-    COALESCE(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)), 
-    COALESCE(new.raw_user_meta_data->>'nivel', 'Analista'), 
-    TRUE
-  )
-  ON CONFLICT (id) DO UPDATE SET
-    name = EXCLUDED.name,
-    username = EXCLUDED.username;
-  RETURN new;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+-- 6. Garantir permissões de acesso ao Schema Public
+GRANT ALL ON TABLE public.tickets TO authenticated;
+GRANT ALL ON TABLE public.user_profiles TO authenticated;
+GRANT ALL ON TABLE public.tickets TO service_role;
+GRANT ALL ON TABLE public.user_profiles TO service_role;
