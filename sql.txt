@@ -1,8 +1,17 @@
 
--- SCRIPT DE ESTRUTURA COMPLETA (DIÁRIO DE BORDO)
--- Copie e cole tudo no SQL Editor do Supabase e clique em 'Run'
+-- SCRIPT DE REPARO TOTAL - DIÁRIO DE BORDO
+-- Execute este script no SQL Editor do Supabase para limpar erros de recursão e criar as tabelas
 
--- 1. Tabela de Perfis de Usuários
+-- 1. Limpeza de Políticas Antigas (Evita Recursão Infinita)
+DROP POLICY IF EXISTS "allow_all_read_profiles" ON public.user_profiles;
+DROP POLICY IF EXISTS "allow_all_read_tickets" ON public.tickets;
+DROP POLICY IF EXISTS "allow_auth_insert_tickets" ON public.tickets;
+DROP POLICY IF EXISTS "allow_auth_update_tickets" ON public.tickets;
+DROP POLICY IF EXISTS "Profiles are viewable by authenticated users" ON public.user_profiles;
+DROP POLICY IF EXISTS "Tickets are viewable by authenticated users" ON public.tickets;
+DROP POLICY IF EXISTS "Users can insert their own tickets" ON public.tickets;
+
+-- 2. Garantir que as Tabelas existam
 CREATE TABLE IF NOT EXISTS public.user_profiles (
     id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
     name TEXT NOT NULL,
@@ -12,13 +21,10 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Tabela de Atendimentos (Tickets)
 CREATE TABLE IF NOT EXISTS public.tickets (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     user_id UUID REFERENCES auth.users ON DELETE SET NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    
-    -- Informações do Cliente/Local
     customer_name TEXT,
     location_name TEXT,
     task_id TEXT,
@@ -26,15 +32,11 @@ CREATE TABLE IF NOT EXISTS public.tickets (
     hostname TEXT,
     n_serie TEXT,
     subject TEXT,
-    
-    -- Detalhes do Suporte
     analyst_name TEXT,
     support_start_time TEXT,
     support_end_time TEXT,
     description TEXT,
     analyst_action TEXT,
-    
-    -- Validadores (Checkboxes)
     is_due_call BOOLEAN DEFAULT FALSE,
     used_acfs BOOLEAN DEFAULT FALSE,
     has_ink_staining BOOLEAN DEFAULT FALSE,
@@ -42,48 +44,38 @@ CREATE TABLE IF NOT EXISTS public.tickets (
     part_description TEXT,
     tag_vldd BOOLEAN DEFAULT FALSE,
     tag_nlvdd BOOLEAN DEFAULT FALSE,
-    
-    -- Validação Técnica (N2/Tiger)
     test_with_card BOOLEAN DEFAULT FALSE,
     sic_withdrawal BOOLEAN DEFAULT FALSE,
     sic_deposit BOOLEAN DEFAULT FALSE,
     sic_sensors BOOLEAN DEFAULT FALSE,
     sic_smart_power BOOLEAN DEFAULT FALSE,
-    
-    -- Testemunha/Responsável
     client_witness_name TEXT,
     client_witness_id TEXT,
-    
-    -- Status e Prioridade
     status TEXT DEFAULT 'Aberto',
     priority TEXT DEFAULT 'Média',
     is_escalated BOOLEAN DEFAULT FALSE,
     is_tiger_team BOOLEAN DEFAULT FALSE,
-    
-    -- IA e Validação Final
     ai_suggested_solution TEXT,
     validated_by TEXT,
     validated_at TIMESTAMPTZ
 );
 
--- 3. Habilitar RLS (Segurança)
+-- 3. Habilitar Segurança (RLS)
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
 
--- 4. Políticas de Segurança (Simplificadas para evitar recursão)
-DROP POLICY IF EXISTS "allow_all_read_profiles" ON public.user_profiles;
-CREATE POLICY "allow_all_read_profiles" ON public.user_profiles FOR SELECT TO authenticated USING (true);
+-- 4. Novas Políticas SIMPLES (Sem recursão)
+-- Permite que qualquer usuário logado veja os perfis e os tickets
+CREATE POLICY "read_profiles" ON public.user_profiles FOR SELECT TO authenticated USING (true);
+CREATE POLICY "read_tickets" ON public.tickets FOR SELECT TO authenticated USING (true);
 
-DROP POLICY IF EXISTS "allow_all_read_tickets" ON public.tickets;
-CREATE POLICY "allow_all_read_tickets" ON public.tickets FOR SELECT TO authenticated USING (true);
+-- Permite inserção de tickets por usuários logados
+CREATE POLICY "insert_tickets" ON public.tickets FOR INSERT TO authenticated WITH CHECK (true);
 
-DROP POLICY IF EXISTS "allow_auth_insert_tickets" ON public.tickets;
-CREATE POLICY "allow_auth_insert_tickets" ON public.tickets FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+-- Permite atualização de tickets por usuários logados
+CREATE POLICY "update_tickets" ON public.tickets FOR UPDATE TO authenticated USING (true);
 
-DROP POLICY IF EXISTS "allow_auth_update_tickets" ON public.tickets;
-CREATE POLICY "allow_auth_update_tickets" ON public.tickets FOR UPDATE TO authenticated USING (true);
-
--- 5. Trigger para criar perfil automático ao registrar no Auth
+-- 5. Trigger de Perfil (Garante que o perfil exista ao logar)
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
@@ -95,7 +87,9 @@ BEGIN
     COALESCE(new.raw_user_meta_data->>'nivel', 'Analista'), 
     TRUE
   )
-  ON CONFLICT (id) DO NOTHING;
+  ON CONFLICT (id) DO UPDATE SET
+    name = EXCLUDED.name,
+    username = EXCLUDED.username;
   RETURN new;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

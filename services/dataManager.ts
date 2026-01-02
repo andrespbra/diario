@@ -55,7 +55,7 @@ export const DataManager = {
     const email = username.includes('@') ? username : `${username}${VIRTUAL_DOMAIN}`;
     
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
-    if (authError) throw new Error("Login falhou. Verifique usuário e senha.");
+    if (authError) throw new Error("Login falhou: " + authError.message);
 
     const { data: profile, error: pError } = await supabase
         .from('user_profiles')
@@ -66,9 +66,9 @@ export const DataManager = {
     if (pError || !profile) {
         return {
             id: authData.user.id,
-            name: username,
+            name: authData.user.user_metadata?.name || username,
             username: username,
-            nivel: 'Analista',
+            nivel: authData.user.user_metadata?.nivel || 'Analista',
             mustChangePassword: false
         };
     }
@@ -86,8 +86,20 @@ export const DataManager = {
       if (!isSupabaseConfigured) return null;
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return null;
-      const { data: profile } = await supabase.from('user_profiles').select('*').eq('id', session.user.id).single();
-      if (!profile) return null;
+      
+      const { data: profile, error } = await supabase.from('user_profiles').select('*').eq('id', session.user.id).single();
+      
+      if (error || !profile) {
+          // Fallback se o trigger não criou o perfil ainda
+          return {
+              id: session.user.id,
+              name: session.user.user_metadata?.name || 'Usuário',
+              username: session.user.user_metadata?.username || 'login',
+              nivel: session.user.user_metadata?.nivel || 'Analista',
+              mustChangePassword: false
+          };
+      }
+      
       return {
           id: profile.id,
           name: profile.name,
@@ -101,11 +113,15 @@ export const DataManager = {
 
   getTickets: async (): Promise<Ticket[]> => {
     if (!isSupabaseConfigured) return [];
-    const { data, error } = await supabase.from('tickets').select('*').order('created_at', { ascending: false });
+    
+    const { data, error } = await supabase
+        .from('tickets')
+        .select('*')
+        .order('created_at', { ascending: false });
 
     if (error) {
-        console.error("Erro Supabase getTickets:", error);
-        throw new Error(error.message);
+        console.error("Erro Crítico Supabase (getTickets):", error);
+        throw new Error(`Erro ao carregar tickets: ${error.message} (${error.code})`);
     }
 
     return (data || []).map((t: any) => ({
@@ -149,20 +165,27 @@ export const DataManager = {
   },
 
   addTicket: async (ticket: Ticket) => {
-      console.log("Tentando inserir ticket:", ticket);
       const payload = preparePayload(ticket);
-      const { data, error } = await supabase.from('tickets').insert([payload]).select();
+      console.log("DataManager: Enviando Ticket...", payload);
+      
+      const { data, error } = await supabase
+        .from('tickets')
+        .insert([payload])
+        .select();
       
       if (error) {
-          console.error("Erro ao inserir no Supabase:", error);
-          throw new Error(`Erro no Banco: ${error.message}`);
+          console.error("DataManager: Erro ao inserir ticket:", error);
+          throw new Error(`Erro ao salvar no banco: ${error.message}`);
       }
-      console.log("Ticket inserido com sucesso:", data);
+      console.log("DataManager: Ticket salvo com sucesso!", data);
   },
 
   updateTicket: async (ticket: Ticket) => {
       const { error } = await supabase.from('tickets').update(preparePayload(ticket)).eq('id', ticket.id);
-      if (error) throw error;
+      if (error) {
+          console.error("DataManager: Erro ao atualizar ticket:", error);
+          throw error;
+      }
   },
 
   deleteTicket: async (id: string) => {
@@ -172,7 +195,10 @@ export const DataManager = {
 
   getUsers: async (): Promise<UserProfile[]> => {
     const { data, error } = await supabase.from('user_profiles').select('*');
-    if (error) throw error;
+    if (error) {
+        console.error("DataManager: Erro ao buscar usuários:", error);
+        throw error;
+    }
     return (data || []).map((u: any) => ({
         id: u.id,
         name: u.name,
