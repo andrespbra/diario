@@ -1,71 +1,89 @@
 
--- 1. LIMPEZA TOTAL (PARA REMOVER POLÍTICAS QUE CAUSAM RECURSÃO)
-DROP POLICY IF EXISTS "safe_read_profiles" ON public.user_profiles;
-DROP POLICY IF EXISTS "safe_update_own_profile" ON public.user_profiles;
-DROP POLICY IF EXISTS "safe_read_tickets" ON public.tickets;
-DROP POLICY IF EXISTS "safe_insert_tickets" ON public.tickets;
-DROP POLICY IF EXISTS "safe_update_tickets" ON public.tickets;
-DROP POLICY IF EXISTS "safe_delete_tickets" ON public.tickets;
-DROP POLICY IF EXISTS "Profiles_Read_All" ON public.user_profiles;
-DROP POLICY IF EXISTS "Profiles_Update_Own" ON public.user_profiles;
-DROP POLICY IF EXISTS "Tickets_Read_All" ON public.tickets;
-DROP POLICY IF EXISTS "Tickets_Insert_Auth" ON public.tickets;
+-- SCRIPT DE ESTRUTURA COMPLETA (DIÁRIO DE BORDO)
+-- Copie e cole tudo no SQL Editor do Supabase e clique em 'Run'
 
--- 2. FUNÇÃO AUXILIAR PARA EVITAR RECURSÃO
--- Esta função ignora o RLS para checar se o usuário é admin
-CREATE OR REPLACE FUNCTION public.check_is_admin()
-RETURNS BOOLEAN AS $$
-BEGIN
-  RETURN EXISTS (
-    SELECT 1 FROM public.user_profiles 
-    WHERE id = auth.uid() AND nivel = 'Admin'
-  );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- 1. Tabela de Perfis de Usuários
+CREATE TABLE IF NOT EXISTS public.user_profiles (
+    id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
+    name TEXT NOT NULL,
+    username TEXT UNIQUE NOT NULL,
+    nivel TEXT DEFAULT 'Analista',
+    must_change_password BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
--- 3. POLÍTICAS PARA USER_PROFILES (À PROVA DE LOOP)
+-- 2. Tabela de Atendimentos (Tickets)
+CREATE TABLE IF NOT EXISTS public.tickets (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users ON DELETE SET NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+    
+    -- Informações do Cliente/Local
+    customer_name TEXT,
+    location_name TEXT,
+    task_id TEXT,
+    service_request TEXT,
+    hostname TEXT,
+    n_serie TEXT,
+    subject TEXT,
+    
+    -- Detalhes do Suporte
+    analyst_name TEXT,
+    support_start_time TEXT,
+    support_end_time TEXT,
+    description TEXT,
+    analyst_action TEXT,
+    
+    -- Validadores (Checkboxes)
+    is_due_call BOOLEAN DEFAULT FALSE,
+    used_acfs BOOLEAN DEFAULT FALSE,
+    has_ink_staining BOOLEAN DEFAULT FALSE,
+    part_replaced BOOLEAN DEFAULT FALSE,
+    part_description TEXT,
+    tag_vldd BOOLEAN DEFAULT FALSE,
+    tag_nlvdd BOOLEAN DEFAULT FALSE,
+    
+    -- Validação Técnica (N2/Tiger)
+    test_with_card BOOLEAN DEFAULT FALSE,
+    sic_withdrawal BOOLEAN DEFAULT FALSE,
+    sic_deposit BOOLEAN DEFAULT FALSE,
+    sic_sensors BOOLEAN DEFAULT FALSE,
+    sic_smart_power BOOLEAN DEFAULT FALSE,
+    
+    -- Testemunha/Responsável
+    client_witness_name TEXT,
+    client_witness_id TEXT,
+    
+    -- Status e Prioridade
+    status TEXT DEFAULT 'Aberto',
+    priority TEXT DEFAULT 'Média',
+    is_escalated BOOLEAN DEFAULT FALSE,
+    is_tiger_team BOOLEAN DEFAULT FALSE,
+    
+    -- IA e Validação Final
+    ai_suggested_solution TEXT,
+    validated_by TEXT,
+    validated_at TIMESTAMPTZ
+);
+
+-- 3. Habilitar RLS (Segurança)
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
-
--- QUALQUER UM LOGADO PODE LER PERFIS (Essencial para evitar a recursão)
-CREATE POLICY "profiles_select_policy" 
-ON public.user_profiles FOR SELECT 
-TO authenticated 
-USING (true);
-
--- APENAS O PRÓPRIO OU ADMIN PODE ATUALIZAR
-CREATE POLICY "profiles_update_policy" 
-ON public.user_profiles FOR UPDATE 
-TO authenticated 
-USING (auth.uid() = id OR public.check_is_admin());
-
--- 4. POLÍTICAS PARA TICKETS
 ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
 
--- LEITURA: Todos os técnicos veem todos os chamados
-CREATE POLICY "tickets_select_policy" 
-ON public.tickets FOR SELECT 
-TO authenticated 
-USING (true);
+-- 4. Políticas de Segurança (Simplificadas para evitar recursão)
+DROP POLICY IF EXISTS "allow_all_read_profiles" ON public.user_profiles;
+CREATE POLICY "allow_all_read_profiles" ON public.user_profiles FOR SELECT TO authenticated USING (true);
 
--- INSERÇÃO: Técnico insere seu próprio chamado
-CREATE POLICY "tickets_insert_policy" 
-ON public.tickets FOR INSERT 
-TO authenticated 
-WITH CHECK (auth.uid() = user_id);
+DROP POLICY IF EXISTS "allow_all_read_tickets" ON public.tickets;
+CREATE POLICY "allow_all_read_tickets" ON public.tickets FOR SELECT TO authenticated USING (true);
 
--- ATUALIZAÇÃO: Todos podem atualizar (fluxo colaborativo N1 -> N2 -> Tiger)
-CREATE POLICY "tickets_update_policy" 
-ON public.tickets FOR UPDATE 
-TO authenticated 
-USING (true);
+DROP POLICY IF EXISTS "allow_auth_insert_tickets" ON public.tickets;
+CREATE POLICY "allow_auth_insert_tickets" ON public.tickets FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
--- DELEÇÃO: Apenas o dono ou Admin
-CREATE POLICY "tickets_delete_policy" 
-ON public.tickets FOR DELETE 
-TO authenticated 
-USING (auth.uid() = user_id OR public.check_is_admin());
+DROP POLICY IF EXISTS "allow_auth_update_tickets" ON public.tickets;
+CREATE POLICY "allow_auth_update_tickets" ON public.tickets FOR UPDATE TO authenticated USING (true);
 
--- 5. TRIGGER DE CRIAÇÃO AUTOMÁTICA DE PERFIL (CASO NÃO EXISTA)
+-- 5. Trigger para criar perfil automático ao registrar no Auth
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
@@ -75,7 +93,7 @@ BEGIN
     COALESCE(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)), 
     COALESCE(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)), 
     COALESCE(new.raw_user_meta_data->>'nivel', 'Analista'), 
-    true
+    TRUE
   )
   ON CONFLICT (id) DO NOTHING;
   RETURN new;

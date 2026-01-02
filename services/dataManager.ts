@@ -52,18 +52,11 @@ const preparePayload = (ticket: Partial<Ticket>) => {
 export const DataManager = {
   authenticate: async (username: string, password: string): Promise<UserProfile> => {
     if (!isSupabaseConfigured) throw new Error("Supabase não configurado.");
-
     const email = username.includes('@') ? username : `${username}${VIRTUAL_DOMAIN}`;
     
-    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-    });
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    if (authError) throw new Error("Login falhou. Verifique usuário e senha.");
 
-    if (authError) throw new Error("Falha no Login: Usuário ou senha incorretos.");
-    if (!authData.user) throw new Error('Usuário não encontrado.');
-
-    // Busca perfil
     const { data: profile, error: pError } = await supabase
         .from('user_profiles')
         .select('*')
@@ -71,7 +64,6 @@ export const DataManager = {
         .single();
 
     if (pError || !profile) {
-        console.warn("Perfil não encontrado em user_profiles.");
         return {
             id: authData.user.id,
             name: username,
@@ -94,15 +86,8 @@ export const DataManager = {
       if (!isSupabaseConfigured) return null;
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return null;
-
-      const { data: profile, error } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
-      
-      if (error || !profile) return null;
-      
+      const { data: profile } = await supabase.from('user_profiles').select('*').eq('id', session.user.id).single();
+      if (!profile) return null;
       return {
           id: profile.id,
           name: profile.name,
@@ -112,23 +97,15 @@ export const DataManager = {
       };
   },
 
-  logout: async () => {
-      if (isSupabaseConfigured) await supabase.auth.signOut();
-  },
+  logout: async () => { if (isSupabaseConfigured) await supabase.auth.signOut(); },
 
   getTickets: async (): Promise<Ticket[]> => {
     if (!isSupabaseConfigured) return [];
-    
-    const { data, error } = await supabase
-      .from('tickets')
-      .select('*')
-      .order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('tickets').select('*').order('created_at', { ascending: false });
 
     if (error) {
-        if (error.code === 'PGRST116' || error.message.includes('relation "tickets" does not exist')) {
-            throw new Error("Tabela 'tickets' não encontrada. Você executou o Script SQL no Supabase?");
-        }
-        throw new Error(`Erro ao buscar tickets: ${error.message}`);
+        console.error("Erro Supabase getTickets:", error);
+        throw new Error(error.message);
     }
 
     return (data || []).map((t: any) => ({
@@ -172,13 +149,15 @@ export const DataManager = {
   },
 
   addTicket: async (ticket: Ticket) => {
-      const { error } = await supabase.from('tickets').insert([preparePayload(ticket)]);
+      console.log("Tentando inserir ticket:", ticket);
+      const payload = preparePayload(ticket);
+      const { data, error } = await supabase.from('tickets').insert([payload]).select();
+      
       if (error) {
-          if (error.message.includes('relation "tickets" does not exist')) {
-              throw new Error("Erro: A tabela 'tickets' não existe no banco de dados.");
-          }
-          throw error;
+          console.error("Erro ao inserir no Supabase:", error);
+          throw new Error(`Erro no Banco: ${error.message}`);
       }
+      console.log("Ticket inserido com sucesso:", data);
   },
 
   updateTicket: async (ticket: Ticket) => {
@@ -193,12 +172,7 @@ export const DataManager = {
 
   getUsers: async (): Promise<UserProfile[]> => {
     const { data, error } = await supabase.from('user_profiles').select('*');
-    if (error) {
-        if (error.message.includes('relation "user_profiles" does not exist')) {
-            throw new Error("Tabela 'user_profiles' não encontrada.");
-        }
-        throw error;
-    }
+    if (error) throw error;
     return (data || []).map((u: any) => ({
         id: u.id,
         name: u.name,
@@ -213,13 +187,7 @@ export const DataManager = {
     const { error } = await supabase.auth.signUp({
       email,
       password: password || 'Mudar123!',
-      options: { 
-          data: { 
-              name: newUser.name, 
-              username: newUser.username,
-              nivel: newUser.nivel 
-          } 
-      }
+      options: { data: { name: newUser.name, username: newUser.username, nivel: newUser.nivel } }
     });
     if (error) throw error;
   },
