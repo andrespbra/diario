@@ -16,7 +16,6 @@ const preparePayload = (ticket: Partial<Ticket>) => {
         customer_name: cleanValue(ticket.customerName),
         location_name: cleanValue(ticket.locationName),
         task_id: cleanValue(ticket.taskId),
-        // Fix: Remove reference to non-existent service_request property and use serviceRequest from the Ticket interface.
         service_request: cleanValue(ticket.serviceRequest),
         hostname: cleanValue(ticket.hostname),
         n_serie: cleanValue(ticket.serialNumber),
@@ -77,7 +76,6 @@ export const DataManager = {
             mustChangePassword: profile.must_change_password
         };
     } catch (e) {
-        // Fallback para metadados se a tabela estiver bloqueada por recursão
         return {
             id: authData.user.id,
             name: authData.user.user_metadata?.name || username,
@@ -112,7 +110,6 @@ export const DataManager = {
               mustChangePassword: profile.must_change_password
           };
       } catch (err) {
-          // Se houver erro de recursão no banco, usamos os dados do token JWT
           return {
               id: session.user.id,
               name: session.user.user_metadata?.name || 'Usuário',
@@ -125,17 +122,20 @@ export const DataManager = {
 
   logout: async () => { if (isSupabaseConfigured) await supabase.auth.signOut(); },
 
-  getTickets: async (): Promise<Ticket[]> => {
+  getTickets: async (userId: string, isAdmin: boolean): Promise<Ticket[]> => {
     if (!isSupabaseConfigured) return [];
     
-    const { data, error } = await supabase
-        .from('tickets')
-        .select('*')
-        .order('created_at', { ascending: false });
+    let query = supabase.from('tickets').select('*');
+    
+    // Regra: Se não for Admin, filtra apenas os tickets do próprio analista
+    if (!isAdmin) {
+        query = query.eq('user_id', userId);
+    }
+    
+    const { data, error } = await query.order('created_at', { ascending: false });
 
     if (error) {
         console.error("Erro getTickets:", error);
-        // Se der erro de recursão, retornamos array vazio mas não quebramos o app
         if (error.code === '42P17') throw new Error("Erro de recursão no banco. Execute o novo SQL de reparo.");
         throw new Error(error.message);
     }

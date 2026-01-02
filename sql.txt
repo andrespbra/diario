@@ -1,12 +1,8 @@
 
--- SCRIPT DE RESET TOTAL DE POLÍTICAS (CORREÇÃO ERRO 42P17)
--- Execute isto para limpar loops infinitos de segurança
+-- SCRIPT DE SEGURANÇA REFINADA - DIÁRIO DE BORDO
+-- Implementa restrição: Analista vê apenas o seu / Admin vê tudo
 
--- 1. Desabilitar RLS temporariamente para garantir a limpeza
-ALTER TABLE IF EXISTS public.tickets DISABLE ROW LEVEL SECURITY;
-ALTER TABLE IF EXISTS public.user_profiles DISABLE ROW LEVEL SECURITY;
-
--- 2. Remover TODAS as políticas conhecidas e possíveis
+-- 1. Limpeza de políticas anteriores
 DO $$ 
 DECLARE 
     pol record;
@@ -16,71 +12,48 @@ BEGIN
     END LOOP;
 END $$;
 
--- 3. Garantir Estrutura das Tabelas
-CREATE TABLE IF NOT EXISTS public.user_profiles (
-    id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
-    name TEXT NOT NULL,
-    username TEXT UNIQUE NOT NULL,
-    nivel TEXT DEFAULT 'Analista',
-    must_change_password BOOLEAN DEFAULT TRUE,
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE TABLE IF NOT EXISTS public.tickets (
-    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES auth.users ON DELETE SET NULL,
-    created_at TIMESTAMPTZ DEFAULT NOW(),
-    customer_name TEXT,
-    location_name TEXT,
-    task_id TEXT,
-    service_request TEXT,
-    hostname TEXT,
-    n_serie TEXT,
-    subject TEXT,
-    analyst_name TEXT,
-    support_start_time TEXT,
-    support_end_time TEXT,
-    description TEXT,
-    analyst_action TEXT,
-    is_due_call BOOLEAN DEFAULT FALSE,
-    used_acfs BOOLEAN DEFAULT FALSE,
-    has_ink_staining BOOLEAN DEFAULT FALSE,
-    part_replaced BOOLEAN DEFAULT FALSE,
-    part_description TEXT,
-    tag_vldd BOOLEAN DEFAULT FALSE,
-    tag_nlvdd BOOLEAN DEFAULT FALSE,
-    test_with_card BOOLEAN DEFAULT FALSE,
-    sic_withdrawal BOOLEAN DEFAULT FALSE,
-    sic_deposit BOOLEAN DEFAULT FALSE,
-    sic_sensors BOOLEAN DEFAULT FALSE,
-    sic_smart_power BOOLEAN DEFAULT FALSE,
-    client_witness_name TEXT,
-    client_witness_id TEXT,
-    status TEXT DEFAULT 'Aberto',
-    priority TEXT DEFAULT 'Média',
-    is_escalated BOOLEAN DEFAULT FALSE,
-    is_tiger_team BOOLEAN DEFAULT FALSE,
-    ai_suggested_solution TEXT,
-    validated_by TEXT,
-    validated_at TIMESTAMPTZ
-);
-
--- 4. Reabilitar Segurança
+-- 2. Garantir permissões básicas de RLS
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
 
--- 5. Criar Políticas SEM RECURSÃO (Diretas)
--- PERFIL: Usuário só lê o próprio perfil (evita loop de admin)
-CREATE POLICY "policy_profiles_select" ON public.user_profiles FOR SELECT TO authenticated USING (auth.uid() = id);
+-- 3. Políticas para USER_PROFILES
+-- Usuário vê o próprio perfil OU Admin vê todos (usando metadados do JWT para evitar recursão)
+CREATE POLICY "profiles_select_policy" ON public.user_profiles 
+FOR SELECT TO authenticated 
+USING (
+  auth.uid() = id OR 
+  (auth.jwt() -> 'user_metadata' ->> 'nivel') = 'Admin'
+);
 
--- TICKETS: Todos logados podem ver, inserir e editar (Segurança simplificada para Diário de Bordo)
-CREATE POLICY "policy_tickets_all_select" ON public.tickets FOR SELECT TO authenticated USING (true);
-CREATE POLICY "policy_tickets_all_insert" ON public.tickets FOR INSERT TO authenticated WITH CHECK (true);
-CREATE POLICY "policy_tickets_all_update" ON public.tickets FOR UPDATE TO authenticated USING (true);
-CREATE POLICY "policy_tickets_all_delete" ON public.tickets FOR DELETE TO authenticated USING (true);
+-- 4. Políticas para TICKETS
+-- SELECT: Analista vê apenas os seus (user_id = auth.uid()) OR Admin vê todos
+CREATE POLICY "tickets_select_policy" ON public.tickets 
+FOR SELECT TO authenticated 
+USING (
+  auth.uid() = user_id OR 
+  (auth.jwt() -> 'user_metadata' ->> 'nivel') = 'Admin'
+);
 
--- 6. Garantir permissões de acesso ao Schema Public
-GRANT ALL ON TABLE public.tickets TO authenticated;
-GRANT ALL ON TABLE public.user_profiles TO authenticated;
-GRANT ALL ON TABLE public.tickets TO service_role;
-GRANT ALL ON TABLE public.user_profiles TO service_role;
+-- INSERT: Qualquer usuário autenticado pode inserir
+CREATE POLICY "tickets_insert_policy" ON public.tickets 
+FOR INSERT TO authenticated 
+WITH CHECK (true);
+
+-- UPDATE: Usuário altera o seu próprio OU Admin altera qualquer um
+CREATE POLICY "tickets_update_policy" ON public.tickets 
+FOR UPDATE TO authenticated 
+USING (
+  auth.uid() = user_id OR 
+  (auth.jwt() -> 'user_metadata' ->> 'nivel') = 'Admin'
+);
+
+-- DELETE: Apenas Admins podem deletar registros para auditoria (opcional, mude conforme necessidade)
+CREATE POLICY "tickets_delete_policy" ON public.tickets 
+FOR DELETE TO authenticated 
+USING (
+  (auth.jwt() -> 'user_metadata' ->> 'nivel') = 'Admin'
+);
+
+-- 5. Permissões de Tabela
+GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO authenticated;

@@ -52,7 +52,8 @@ const App: React.FC = () => {
       setDataLoading(true);
       setGlobalError(null);
       try {
-        const ticketData = await DataManager.getTickets();
+        // Passa o ID do usuário e flag de Admin para o DataManager
+        const ticketData = await DataManager.getTickets(user.id, user.nivel === 'Admin');
         setTickets(ticketData);
         
         if (user.nivel === 'Admin') {
