@@ -1,6 +1,5 @@
 
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
-import { createClient } from '@supabase/supabase-js';
 import { Ticket, UserProfile, TicketStatus, TicketPriority } from '../types';
 
 const VIRTUAL_DOMAIN = '@sys.local';
@@ -52,9 +51,7 @@ const preparePayload = (ticket: Partial<Ticket>) => {
 
 export const DataManager = {
   authenticate: async (username: string, password: string): Promise<UserProfile> => {
-    if (!isSupabaseConfigured) {
-      throw new Error("Erro de Configuração: As chaves do Supabase não foram encontradas no ambiente.");
-    }
+    if (!isSupabaseConfigured) throw new Error("Supabase não configurado.");
 
     const email = username.includes('@') ? username : `${username}${VIRTUAL_DOMAIN}`;
     
@@ -63,21 +60,18 @@ export const DataManager = {
         password
     });
 
-    if (authError) {
-        console.error("Supabase Auth Error:", authError);
-        throw new Error(authError.message === 'Invalid login credentials' ? 'Usuário ou senha incorretos' : authError.message);
-    }
-    
-    if (!authData.user) throw new Error('Falha ao autenticar usuário.');
+    if (authError) throw new Error(authError.message === 'Invalid login credentials' ? 'Usuário ou senha incorretos' : authError.message);
+    if (!authData.user) throw new Error('Falha na autenticação.');
 
-    const { data: profileData, error: profileError } = await supabase
+    // Tenta obter o perfil
+    const { data: profile, error: pError } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', authData.user.id)
         .single();
 
-    if (profileError) {
-        console.warn("Perfil não encontrado em user_profiles, gerando perfil temporário.");
+    if (pError || !profile) {
+        console.warn("Perfil não encontrado em user_profiles após login.");
         return {
             id: authData.user.id,
             name: username,
@@ -88,107 +82,65 @@ export const DataManager = {
     }
 
     return {
-        id: profileData.id,
-        name: profileData.name,
-        username: profileData.username || username,
-        nivel: profileData.nivel,
-        mustChangePassword: profileData.must_change_password
+        id: profile.id,
+        name: profile.name,
+        username: profile.username || username,
+        nivel: profile.nivel,
+        mustChangePassword: profile.must_change_password
     };
   },
 
   getSession: async (): Promise<UserProfile | null> => {
       if (!isSupabaseConfigured) return null;
-
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return null;
 
-      const { data, error } = await supabase
+      const { data: profile } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', session.user.id)
         .single();
       
-      if (error || !data) return null;
+      if (!profile) return null;
       
       return {
-          id: data.id,
-          name: data.name,
-          username: data.username,
-          nivel: data.nivel,
-          mustChangePassword: data.must_change_password
+          id: profile.id,
+          name: profile.name,
+          username: profile.username,
+          nivel: profile.nivel,
+          mustChangePassword: profile.must_change_password
       };
   },
 
-  logout: async (): Promise<void> => {
+  logout: async () => {
       if (isSupabaseConfigured) await supabase.auth.signOut();
   },
 
-  changePassword: async (username: string, newPassword: string): Promise<void> => {
-    if (!isSupabaseConfigured) return;
-    const { error: authError } = await supabase.auth.updateUser({ password: newPassword });
-    if (authError) throw authError;
-
+  changePassword: async (username: string, newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) throw error;
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      await supabase.from('user_profiles').update({ must_change_password: false }).eq('id', user.id);
+        await supabase.from('user_profiles').update({ must_change_password: false }).eq('id', user.id);
     }
-  },
-
-  getUsers: async (): Promise<UserProfile[]> => {
-    if (!isSupabaseConfigured) return [];
-    const { data, error } = await supabase.from('user_profiles').select('*');
-    if (error) throw error;
-    return data.map((u: any) => ({
-        id: u.id,
-        name: u.name,
-        username: u.username,
-        nivel: u.nivel,
-        mustChangePassword: u.must_change_password
-    }));
-  },
-
-  addUser: async (newUserProfile: UserProfile, password?: string): Promise<void> => {
-    if (!isSupabaseConfigured) return;
-    const email = newUserProfile.username.includes('@') ? newUserProfile.username : `${newUserProfile.username}${VIRTUAL_DOMAIN}`;
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password: password || 'Mudar123!',
-      options: { data: { name: newUserProfile.name, nivel: newUserProfile.nivel } }
-    });
-    if (authError) throw authError;
-    if (authData.user) {
-      await supabase.from('user_profiles').upsert({
-        id: authData.user.id,
-        name: newUserProfile.name,
-        username: newUserProfile.username,
-        nivel: newUserProfile.nivel,
-        must_change_password: true
-      });
-    }
-  },
-
-  deleteUser: async (userId: string): Promise<void> => {
-    if (!isSupabaseConfigured) return;
-    const { error } = await supabase.from('user_profiles').delete().eq('id', userId);
-    if (error) throw error;
   },
 
   getTickets: async (): Promise<Ticket[]> => {
     if (!isSupabaseConfigured) return [];
     
-    // Simplificado: Removemos o filtro OR complexo do lado do cliente.
-    // Confiamos nas políticas de RLS no banco para filtrar o que o usuário pode ver.
     const { data, error } = await supabase
       .from('tickets')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-        console.error("DataManager Error (getTickets):", error);
-        throw new Error(`Erro ao conectar com o banco de dados: ${error.message}`);
+        console.error("❌ Erro Supabase em getTickets:", error);
+        throw new Error(`Erro na busca: ${error.message}`);
     }
 
     if (!data) return [];
+
+    console.log(`✅ ${data.length} tickets carregados.`);
 
     return data.map((t: any) => ({
         id: t.id,
@@ -230,21 +182,54 @@ export const DataManager = {
     }));
   },
 
-  addTicket: async (ticket: Ticket): Promise<void> => {
-      if (!isSupabaseConfigured) return;
+  getUsers: async (): Promise<UserProfile[]> => {
+    if (!isSupabaseConfigured) return [];
+    const { data, error } = await supabase.from('user_profiles').select('*');
+    if (error) throw error;
+    return data.map((u: any) => ({
+        id: u.id,
+        name: u.name,
+        username: u.username,
+        nivel: u.nivel,
+        mustChangePassword: u.must_change_password
+    }));
+  },
+
+  addUser: async (newUser: UserProfile, password?: string) => {
+    const email = newUser.username.includes('@') ? newUser.username : `${newUser.username}${VIRTUAL_DOMAIN}`;
+    const { data: authData, error: authError } = await supabase.auth.signUp({
+      email,
+      password: password || 'Mudar123!',
+      options: { data: { name: newUser.name, nivel: newUser.nivel } }
+    });
+    if (authError) throw authError;
+    if (authData.user) {
+        // O trigger no SQL criará o perfil, mas fazemos um upsert por garantia
+        await supabase.from('user_profiles').upsert({
+            id: authData.user.id,
+            name: newUser.name,
+            username: newUser.username,
+            nivel: newUser.nivel,
+            must_change_password: true
+        });
+    }
+  },
+
+  deleteUser: async (userId: string) => {
+    await supabase.from('user_profiles').delete().eq('id', userId);
+  },
+
+  addTicket: async (ticket: Ticket) => {
       const { error } = await supabase.from('tickets').insert([preparePayload(ticket)]);
       if (error) throw error;
   },
 
-  updateTicket: async (updatedTicket: Ticket): Promise<void> => {
-      if (!isSupabaseConfigured) return;
-      const { error } = await supabase.from('tickets').update(preparePayload(updatedTicket)).eq('id', updatedTicket.id);
+  updateTicket: async (ticket: Ticket) => {
+      const { error } = await supabase.from('tickets').update(preparePayload(ticket)).eq('id', ticket.id);
       if (error) throw error;
   },
 
-  deleteTicket: async (ticketId: string): Promise<void> => {
-    if (!isSupabaseConfigured) return;
-    const { error } = await supabase.from('tickets').delete().eq('id', ticketId);
-    if (error) throw error;
+  deleteTicket: async (id: string) => {
+      await supabase.from('tickets').delete().eq('id', id);
   }
 };

@@ -61,7 +61,7 @@ const App: React.FC = () => {
         }
       } catch (e: any) {
           console.error("Error fetching data", e);
-          setGlobalError("Falha ao carregar dados do servidor. Verifique sua conexão.");
+          setGlobalError(`Falha ao carregar dados: ${e.message || 'Erro desconhecido'}. Certifique-se de que as tabelas do Supabase foram criadas.`);
       } finally {
           setDataLoading(false);
       }
@@ -80,15 +80,14 @@ const App: React.FC = () => {
 
   const handleCreateTicket = async (ticket: Ticket) => {
     if (!currentUser) return;
-    
     try {
         await DataManager.addTicket(ticket);
         await fetchData(currentUser);
         showNotification("Chamado registrado com sucesso!");
         setCurrentView('dashboard');
-    } catch (error) {
+    } catch (error: any) {
         console.error(error);
-        showNotification("Erro ao salvar chamado.");
+        showNotification(`Erro ao salvar: ${error.message}`);
     }
   };
 
@@ -96,11 +95,10 @@ const App: React.FC = () => {
     try {
         await DataManager.updateTicket(updatedTicket);
         if (currentUser) await fetchData(currentUser);
-        const msg = updatedTicket.status === TicketStatus.CLOSED ? 'Chamado fechado.' : `Chamado TASK-${updatedTicket.taskId} atualizado.`;
-        showNotification(msg);
-    } catch (error) {
+        showNotification("Chamado atualizado.");
+    } catch (error: any) {
         console.error(error);
-        showNotification("Erro ao atualizar chamado.");
+        showNotification(`Erro ao atualizar: ${error.message}`);
     }
   };
 
@@ -108,37 +106,30 @@ const App: React.FC = () => {
     try {
       await DataManager.deleteTicket(ticketId);
       setTickets(prev => prev.filter(t => t.id !== ticketId));
-      showNotification("Chamado excluído com sucesso.");
-    } catch (error) {
+      showNotification("Chamado excluído.");
+    } catch (error: any) {
       console.error(error);
-      showNotification("Erro ao excluir chamado.");
+      showNotification(`Erro ao excluir: ${error.message}`);
     }
   };
 
   const handleForcePasswordChange = async (newPassword: string) => {
     if (!currentUser) return;
-
     try {
         await DataManager.changePassword(currentUser.username, newPassword);
         setCurrentUser(prev => prev ? ({ ...prev, mustChangePassword: false }) : null);
-        showNotification("Senha atualizada com sucesso!");
+        showNotification("Senha atualizada!");
     } catch (error: any) {
         showNotification(error.message);
     }
   };
 
   const handleAddUser = async (newUserProfile: UserProfile, password?: string) => {
-      if (!password || password.length < 6) {
-          showNotification("Erro: A senha deve ter no mínimo 6 caracteres.");
-          return;
-      }
-
       try {
           await DataManager.addUser(newUserProfile, password);
-          showNotification(`Usuário "${newUserProfile.username}" criado com sucesso!`);
+          showNotification(`Usuário criado!`);
           if (currentUser) await fetchData(currentUser);
       } catch (err: any) {
-          console.error("Error creating user:", err);
           showNotification(`Erro no cadastro: ${err.message}`);
       }
   };
@@ -148,8 +139,8 @@ const App: React.FC = () => {
          await DataManager.deleteUser(userId);
          showNotification("Usuário removido.");
          if (currentUser) await fetchData(currentUser);
-     } catch (error) {
-         showNotification("Erro ao remover usuário.");
+     } catch (error: any) {
+         showNotification(`Erro: ${error.message}`);
      }
   };
 
@@ -163,7 +154,7 @@ const App: React.FC = () => {
           <div className="h-screen flex items-center justify-center bg-slate-50">
               <div className="text-center">
                   <Loader2 className="w-10 h-10 text-indigo-600 animate-spin mx-auto mb-4" />
-                  <p className="text-slate-500 font-medium">Validando sessão...</p>
+                  <p className="text-slate-500 font-medium">Validando conexão...</p>
               </div>
           </div>
       );
@@ -175,17 +166,10 @@ const App: React.FC = () => {
 
   if (currentUser.mustChangePassword) {
       return (
-          <>
-            {notification && (
-                <div className="fixed top-4 right-4 z-50 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg animate-in slide-in-from-top-2">
-                    <span className="text-sm font-medium">{notification}</span>
-                </div>
-            )}
-            <ChangePassword 
+          <ChangePassword 
                 username={currentUser.username} 
                 onPasswordChange={handleForcePasswordChange} 
-            />
-          </>
+          />
       );
   }
 
@@ -215,12 +199,12 @@ const App: React.FC = () => {
                 {isSupabaseConfigured ? (
                     <div className="bg-blue-50 text-blue-700 text-xs px-2 py-1 rounded font-bold flex items-center gap-1 border border-blue-100">
                         <Cloud className="w-3 h-3" />
-                        Online (Cloud)
+                        Online
                     </div>
                 ) : (
                     <div className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded font-bold flex items-center gap-1">
                         <AlertTriangle className="w-3 h-3" />
-                        Desconectado
+                        Offline
                     </div>
                 )}
                 {dataLoading && (
@@ -241,10 +225,7 @@ const App: React.FC = () => {
                 </button>
                 <div className="text-right">
                     <p className="text-sm font-bold text-gray-800">{currentUser.name}</p>
-                    <div className="flex items-center justify-end gap-1">
-                        <div className={`w-2 h-2 rounded-full ${currentUser.nivel === 'Admin' ? 'bg-purple-500' : 'bg-blue-500'}`}></div>
-                        <p className="text-xs text-gray-500 uppercase tracking-wider">{currentUser.nivel}</p>
-                    </div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wider">{currentUser.nivel}</p>
                 </div>
                 <button 
                   onClick={handleLogout}
@@ -255,10 +236,10 @@ const App: React.FC = () => {
              </div>
         </div>
 
-        <div className="flex-1 overflow-auto p-3 sm:p-4 md:p-8 relative w-full">
+        <div className="flex-1 overflow-auto p-4 md:p-8 relative w-full">
             
             {globalError && (
-                <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between">
+                <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between animate-in slide-in-from-top-2">
                     <div className="flex items-center gap-2">
                         <AlertTriangle className="w-5 h-5" />
                         <span className="text-sm font-medium">{globalError}</span>
@@ -268,9 +249,9 @@ const App: React.FC = () => {
             )}
 
             {notification && (
-                <div className="absolute top-4 left-4 right-4 md:left-auto md:right-4 z-50 bg-gray-800 text-white px-4 py-3 rounded-lg shadow-lg animate-in slide-in-from-top-2 fade-in duration-300 flex items-center gap-2 justify-center md:justify-start">
-                    <div className="w-2 h-2 bg-green-400 rounded-full shrink-0"></div>
-                    <span className="text-sm font-medium">{notification}</span>
+                <div className="fixed top-4 left-1/2 -translate-x-1/2 md:left-auto md:right-4 md:translate-x-0 z-[100] bg-gray-900 text-white px-6 py-3 rounded-xl shadow-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-4">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <span className="text-sm font-bold">{notification}</span>
                 </div>
             )}
 
@@ -288,8 +269,6 @@ const App: React.FC = () => {
             {currentView === 'settings' && currentUser.nivel === 'Admin' && (
                 <Settings users={users} onAddUser={handleAddUser} onDeleteUser={handleDeleteUser} />
             )}
-            
-            <div className="h-10 md:h-0"></div>
         </div>
       </main>
     </div>

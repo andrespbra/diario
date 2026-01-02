@@ -1,20 +1,21 @@
 
--- 1. Estrutura do Banco de Dados
+-- 1. Extensões Necessárias
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- Tabelas principais (User Profiles)
+-- 2. Tabela de Perfis (Sincronizada com Auth)
 CREATE TABLE IF NOT EXISTS public.user_profiles (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
   name TEXT NOT NULL,
-  username TEXT,
+  username TEXT UNIQUE,
   nivel TEXT DEFAULT 'Analista',
-  must_change_password BOOLEAN DEFAULT true
+  must_change_password BOOLEAN DEFAULT true,
+  created_at TIMESTAMPTZ DEFAULT now()
 );
 
--- Tabela de Chamados
+-- 3. Tabela de Tickets (Chamados)
 CREATE TABLE IF NOT EXISTS public.tickets (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES public.user_profiles(id),
+  user_id UUID REFERENCES public.user_profiles(id) ON DELETE CASCADE,
   customer_name TEXT,
   location_name TEXT,
   task_id TEXT,
@@ -44,39 +45,62 @@ CREATE TABLE IF NOT EXISTS public.tickets (
   validated_by TEXT,
   validated_at TIMESTAMPTZ,
   ai_suggested_solution TEXT,
-  status TEXT,
-  priority TEXT,
+  status TEXT DEFAULT 'Aberto',
+  priority TEXT DEFAULT 'Média',
   is_escalated BOOLEAN DEFAULT false,
   is_tiger_team BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- ==========================================
--- 2. POLÍTICAS DE SEGURANÇA (RLS) - REVISADAS
+-- 4. AUTOMAÇÃO DE PERFIS (TRIGGER CRÍTICO)
+-- ==========================================
+
+-- Função que cria o perfil automaticamente ao registrar no Auth
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.user_profiles (id, name, username, nivel, must_change_password)
+  VALUES (
+    new.id, 
+    COALESCE(new.raw_user_meta_data->>'name', 'Novo Usuário'), 
+    COALESCE(new.raw_user_meta_data->>'username', split_part(new.email, '@', 1)), 
+    COALESCE(new.raw_user_meta_data->>'nivel', 'Analista'), 
+    true
+  );
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Gatilho dispara após inserção em auth.users
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
+
+-- ==========================================
+-- 5. POLÍTICAS DE SEGURANÇA (RLS)
 -- ==========================================
 
 ALTER TABLE public.user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
 
--- PERFIS: Qualquer autenticado vê os perfis
-DROP POLICY IF EXISTS "Enable read access for all users" ON public.user_profiles;
-CREATE POLICY "Enable read access for all users" ON public.user_profiles FOR SELECT TO authenticated USING (true);
+-- Perfis: Leitura para todos logados, Escrita apenas o dono
+CREATE POLICY "Profiles_Read_All" ON public.user_profiles FOR SELECT TO authenticated USING (true);
+CREATE POLICY "Profiles_Update_Own" ON public.user_profiles FOR UPDATE TO authenticated USING (auth.uid() = id);
 
-DROP POLICY IF EXISTS "Users can update own profile" ON public.user_profiles;
-CREATE POLICY "Users can update own profile" ON public.user_profiles FOR UPDATE TO authenticated USING (auth.uid() = id);
+-- Tickets: Leitura total para equipe técnica logada
+CREATE POLICY "Tickets_Read_All" ON public.tickets FOR SELECT TO authenticated USING (true);
 
--- TICKETS: Leitura Total para Técnicos Autenticados
-DROP POLICY IF EXISTS "Tickets are viewable by authenticated users" ON public.tickets;
-CREATE POLICY "Tickets are viewable by authenticated users" ON public.tickets FOR SELECT TO authenticated USING (true);
+-- Tickets: Inserção permitida para qualquer autenticado
+CREATE POLICY "Tickets_Insert_Auth" ON public.tickets FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
 
--- TICKETS: Inserção (Qualquer autenticado pode inserir um chamado seu)
-DROP POLICY IF EXISTS "Authenticated users can insert tickets" ON public.tickets;
-CREATE POLICY "Authenticated users can insert tickets" ON public.tickets FOR INSERT TO authenticated WITH CHECK (auth.uid() = user_id);
+-- Tickets: Atualização (Qualquer logado pode atualizar para permitir fluxo N2/Tiger)
+CREATE POLICY "Tickets_Update_Auth" ON public.tickets FOR UPDATE TO authenticated USING (true);
 
--- TICKETS: Atualização (Dono ou Admin ou N2 validando)
-DROP POLICY IF EXISTS "Update policy for tickets" ON public.tickets;
-CREATE POLICY "Update policy for tickets" ON public.tickets FOR UPDATE TO authenticated USING (true);
-
--- TICKETS: Deleção (Dono ou Admin)
-DROP POLICY IF EXISTS "Delete policy for tickets" ON public.tickets;
-CREATE POLICY "Delete policy for tickets" ON public.tickets FOR DELETE TO authenticated USING (true);
+-- Tickets: Deleção (Dono ou Admin)
+CREATE POLICY "Tickets_Delete_Auth" ON public.tickets FOR DELETE TO authenticated 
+USING (
+  auth.uid() = user_id OR 
+  EXISTS (SELECT 1 FROM public.user_profiles WHERE id = auth.uid() AND nivel = 'Admin')
+);
