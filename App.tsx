@@ -10,7 +10,7 @@ import { LoginPage } from './components/LoginPage';
 import { Settings } from './components/Settings';
 import { ChangePassword } from './components/ChangePassword';
 import { Ticket, ViewState, UserProfile, TicketStatus } from './types';
-import { Menu, X, Loader2, Cloud, AlertTriangle, RefreshCw } from 'lucide-react';
+import { Menu, X, Loader2, Cloud, AlertTriangle, RefreshCw, Database } from 'lucide-react';
 import { DataManager } from './services/dataManager';
 import { isSupabaseConfigured } from './lib/supabaseClient';
 
@@ -56,12 +56,16 @@ const App: React.FC = () => {
         setTickets(ticketData);
         
         if (user.nivel === 'Admin') {
-            const userData = await DataManager.getUsers();
-            setUsers(userData);
+            try {
+                const userData = await DataManager.getUsers();
+                setUsers(userData);
+            } catch (userErr) {
+                console.warn("Could not fetch users", userErr);
+            }
         }
       } catch (e: any) {
           console.error("Error fetching data", e);
-          setGlobalError(`Falha ao carregar dados: ${e.message || 'Erro desconhecido'}. Certifique-se de que as tabelas do Supabase foram criadas.`);
+          setGlobalError(e.message || 'Erro ao carregar dados do banco.');
       } finally {
           setDataLoading(false);
       }
@@ -239,12 +243,15 @@ const App: React.FC = () => {
         <div className="flex-1 overflow-auto p-4 md:p-8 relative w-full">
             
             {globalError && (
-                <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between animate-in slide-in-from-top-2">
-                    <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-5 h-5" />
-                        <span className="text-sm font-medium">{globalError}</span>
+                <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-center justify-between animate-in slide-in-from-top-2 shadow-sm">
+                    <div className="flex items-center gap-3">
+                        <AlertTriangle className="w-6 h-6" />
+                        <div>
+                            <p className="text-sm font-bold">Aviso de Banco de Dados</p>
+                            <p className="text-xs opacity-90">{globalError}</p>
+                        </div>
                     </div>
-                    <button onClick={() => fetchData(currentUser)} className="text-xs font-bold underline hover:no-underline">Tentar novamente</button>
+                    <button onClick={() => fetchData(currentUser)} className="text-xs font-bold bg-white/20 px-3 py-1 rounded hover:bg-white/30 transition-colors">Tentar novamente</button>
                 </div>
             )}
 
@@ -255,7 +262,25 @@ const App: React.FC = () => {
                 </div>
             )}
 
-            {currentView === 'dashboard' && <Dashboard tickets={tickets} />}
+            {!globalError && tickets.length === 0 && !dataLoading && currentView === 'dashboard' && (
+                <div className="h-full flex flex-col items-center justify-center p-8 bg-white rounded-3xl border border-dashed border-gray-200 text-center space-y-4 animate-in fade-in zoom-in-95 duration-500">
+                    <div className="w-20 h-20 bg-indigo-50 rounded-full flex items-center justify-center">
+                        <Database className="w-10 h-10 text-indigo-400" />
+                    </div>
+                    <div className="max-w-xs space-y-2">
+                        <h2 className="text-xl font-bold text-gray-800">Seu Banco está Vazio</h2>
+                        <p className="text-sm text-gray-500 leading-relaxed">Parabéns! Você conectou com sucesso, mas ainda não há registros. Comece criando seu primeiro atendimento.</p>
+                    </div>
+                    <button 
+                        onClick={() => setCurrentView('new-ticket')}
+                        className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all"
+                    >
+                        Novo Atendimento
+                    </button>
+                </div>
+            )}
+
+            {currentView === 'dashboard' && tickets.length > 0 && <Dashboard tickets={tickets} />}
             {currentView === 'new-ticket' && <NewTicketForm onSubmit={handleCreateTicket} currentUser={currentUser} />}
             {currentView === 'tiger-team' && <TigerTeam tickets={tickets} onResolve={handleResolveTicket} />}
             {currentView === 'escalations' && <EscalationList tickets={tickets} onResolve={handleResolveTicket} />}

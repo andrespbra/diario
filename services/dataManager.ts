@@ -60,7 +60,7 @@ export const DataManager = {
         password
     });
 
-    if (authError) throw new Error(authError.message);
+    if (authError) throw new Error("Falha no Login: Usuário ou senha incorretos.");
     if (!authData.user) throw new Error('Usuário não encontrado.');
 
     // Busca perfil
@@ -71,7 +71,7 @@ export const DataManager = {
         .single();
 
     if (pError || !profile) {
-        console.warn("Perfil não encontrado em user_profiles. Usando dados do Auth.");
+        console.warn("Perfil não encontrado em user_profiles.");
         return {
             id: authData.user.id,
             name: username,
@@ -95,13 +95,13 @@ export const DataManager = {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return null;
 
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('user_profiles')
         .select('*')
         .eq('id', session.user.id)
         .single();
       
-      if (!profile) return null;
+      if (error || !profile) return null;
       
       return {
           id: profile.id,
@@ -119,18 +119,17 @@ export const DataManager = {
   getTickets: async (): Promise<Ticket[]> => {
     if (!isSupabaseConfigured) return [];
     
-    console.log("🔍 Solicitando tickets ao Supabase...");
     const { data, error } = await supabase
       .from('tickets')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-        console.error("❌ Erro na consulta de tickets:", error);
-        throw new Error(error.message);
+        if (error.code === 'PGRST116' || error.message.includes('relation "tickets" does not exist')) {
+            throw new Error("Tabela 'tickets' não encontrada. Você executou o Script SQL no Supabase?");
+        }
+        throw new Error(`Erro ao buscar tickets: ${error.message}`);
     }
-
-    console.log("✅ Dados recebidos:", data?.length || 0, "tickets.");
 
     return (data || []).map((t: any) => ({
         id: t.id,
@@ -173,13 +172,13 @@ export const DataManager = {
   },
 
   addTicket: async (ticket: Ticket) => {
-      console.log("📤 Subindo novo ticket...", ticket.taskId);
       const { error } = await supabase.from('tickets').insert([preparePayload(ticket)]);
       if (error) {
-          console.error("❌ Falha no upload do ticket:", error);
+          if (error.message.includes('relation "tickets" does not exist')) {
+              throw new Error("Erro: A tabela 'tickets' não existe no banco de dados.");
+          }
           throw error;
       }
-      console.log("✅ Ticket salvo com sucesso.");
   },
 
   updateTicket: async (ticket: Ticket) => {
@@ -194,7 +193,12 @@ export const DataManager = {
 
   getUsers: async (): Promise<UserProfile[]> => {
     const { data, error } = await supabase.from('user_profiles').select('*');
-    if (error) throw error;
+    if (error) {
+        if (error.message.includes('relation "user_profiles" does not exist')) {
+            throw new Error("Tabela 'user_profiles' não encontrada.");
+        }
+        throw error;
+    }
     return (data || []).map((u: any) => ({
         id: u.id,
         name: u.name,
@@ -209,7 +213,13 @@ export const DataManager = {
     const { error } = await supabase.auth.signUp({
       email,
       password: password || 'Mudar123!',
-      options: { data: { name: newUser.name, nivel: newUser.nivel } }
+      options: { 
+          data: { 
+              name: newUser.name, 
+              username: newUser.username,
+              nivel: newUser.nivel 
+          } 
+      }
     });
     if (error) throw error;
   },
