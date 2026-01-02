@@ -9,6 +9,7 @@ interface EscalationListProps {
 }
 
 export const EscalationList: React.FC<EscalationListProps> = ({ tickets, onResolve }) => {
+  // Filtro Rigoroso: IsEscalated = True E IsTigerTeam = False
   const escalatedTickets = tickets.filter(t => 
     t.isEscalated && 
     !t.isTigerTeam && 

@@ -24,7 +24,6 @@ const SUBJECT_OPTIONS = [
 ];
 
 export const NewTicketForm: React.FC<NewTicketFormProps> = ({ onSubmit, currentUser }) => {
-  // Função corrigida para retornar o horário LOCAL em formato YYYY-MM-DDTHH:mm
   const getCurrentDateTime = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -129,19 +128,18 @@ Final:  ${end}
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Se a IA sugeriu escalonamento ou o usuário marcou manualmente, o chamado é considerado escalonado
-    const isEscalatedFinal = formData.isTigerTeam || formData.isEscalated || (aiSuggestion ? aiSuggestion.escalated : false);
-    const priorityFinal = formData.isTigerTeam ? TicketPriority.CRITICAL : (isEscalatedFinal ? TicketPriority.CRITICAL : (aiSuggestion ? aiSuggestion.priority : TicketPriority.MEDIUM));
+    // Regra de Negócio: Tiger Team é uma forma de escalonamento, mas com sua própria aba
+    const isActuallyEscalated = formData.isEscalated || (aiSuggestion ? aiSuggestion.escalated : false);
     
     let initialStatus = TicketStatus.OPEN;
-    
-    // REGRAS DE STATUS:
+    let priorityFinal = aiSuggestion ? aiSuggestion.priority : TicketPriority.MEDIUM;
+
     if (formData.isTigerTeam) {
-        initialStatus = TicketStatus.IN_PROGRESS;
-    } else if (isEscalatedFinal) {
-        // Chamados escalonados para validação PRECISAM entrar como OPEN para aparecer na fila de validação,
-        // mesmo que o técnico de nível 1 tenha preenchido o horário de término da sua parte.
-        initialStatus = TicketStatus.OPEN;
+        initialStatus = TicketStatus.IN_PROGRESS; // Tiger Team entra direto em atendimento
+        priorityFinal = TicketPriority.CRITICAL;
+    } else if (isActuallyEscalated) {
+        initialStatus = TicketStatus.OPEN; // Escalonado N2 entra como Aberto para ser validado
+        priorityFinal = TicketPriority.CRITICAL;
     } else if (formData.supportEndTime) {
         initialStatus = TicketStatus.RESOLVED;
     }
@@ -152,11 +150,12 @@ Final:  ${end}
       ...formData,
       status: initialStatus,
       priority: priorityFinal,
-      isEscalated: !!isEscalatedFinal,
+      isEscalated: !!(isActuallyEscalated || formData.isTigerTeam), // No banco, ambos são true para visualização de N2/Admin
       isTigerTeam: !!formData.isTigerTeam,
       aiSuggestedSolution: aiSuggestion?.solution,
       createdAt: new Date(),
     };
+    
     onSubmit(newTicket);
     setFormData({
       customerName: '',
@@ -385,9 +384,10 @@ Final:  ${end}
                   <Zap className="w-4 h-4 text-amber-500" /> Nível Crítico
                 </label>
                 <div className="flex flex-col gap-2">
-                    <div 
+                    <button 
+                        type="button"
                         onClick={() => handleChange('isTigerTeam', !formData.isTigerTeam)}
-                        className={`cursor-pointer w-full px-3 py-2 rounded-lg border flex items-center justify-between transition-colors ${formData.isTigerTeam ? 'bg-amber-50 border-amber-300 ring-1 ring-amber-200' : 'bg-white border-gray-200 hover:border-gray-300'}`}
+                        className={`w-full px-3 py-2 rounded-lg border flex items-center justify-between transition-colors ${formData.isTigerTeam ? 'bg-amber-50 border-amber-300 ring-1 ring-amber-200' : 'bg-white border-gray-200 hover:border-gray-300'}`}
                     >
                         <span className={`text-xs font-bold flex items-center gap-1 ${formData.isTigerTeam ? 'text-amber-700' : 'text-gray-400'}`}>
                             <Zap className="w-3 h-3" /> #198 TIGER TEAM
@@ -395,10 +395,11 @@ Final:  ${end}
                         <div className={`w-8 h-5 rounded-full p-0.5 transition-colors ${formData.isTigerTeam ? 'bg-amber-500' : 'bg-gray-200'}`}>
                             <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${formData.isTigerTeam ? 'translate-x-3' : 'translate-x-0'}`} />
                         </div>
-                    </div>
-                    <div 
+                    </button>
+                    <button 
+                        type="button"
                         onClick={() => handleChange('isEscalated', !formData.isEscalated)}
-                        className={`cursor-pointer w-full px-3 py-2 rounded-lg border flex items-center justify-between transition-colors ${formData.isEscalated ? 'bg-red-50 border-red-300' : 'bg-white border-gray-200 hover:border-gray-300'}`}
+                        className={`w-full px-3 py-2 rounded-lg border flex items-center justify-between transition-colors ${formData.isEscalated ? 'bg-red-50 border-red-300' : 'bg-white border-gray-200 hover:border-gray-300'}`}
                     >
                         <span className={`text-xs font-bold flex items-center gap-1 ${formData.isEscalated ? 'text-red-700' : 'text-gray-400'}`}>
                             <AlertOctagon className="w-3 h-3" /> ESCALONAR
@@ -406,12 +407,12 @@ Final:  ${end}
                         <div className={`w-8 h-5 rounded-full p-0.5 transition-colors ${formData.isEscalated ? 'bg-red-500' : 'bg-gray-200'}`}>
                             <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${formData.isEscalated ? 'translate-x-3' : 'translate-x-0'}`} />
                         </div>
-                    </div>
+                    </button>
                 </div>
              </div>
           </div>
 
-           <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+          <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
             <h3 className="text-sm font-semibold text-indigo-700 uppercase tracking-wider mb-4 flex items-center gap-2">
               <CheckSquare className="w-4 h-4" /> Validadores Técnicos
             </h3>

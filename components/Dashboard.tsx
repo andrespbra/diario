@@ -11,8 +11,21 @@ interface DashboardProps {
 
 export const Dashboard: React.FC<DashboardProps> = ({ tickets }) => {
   const totalTickets = tickets.length;
-  const escalatedTickets = tickets.filter(t => t.isEscalated && t.status !== TicketStatus.CLOSED && t.status !== TicketStatus.RESOLVED).length;
-  const tigerTeamTickets = tickets.filter(t => t.isTigerTeam && t.status !== TicketStatus.CLOSED && t.status !== TicketStatus.RESOLVED).length;
+  
+  // Regra: Escalonados N2 são chamados escalonados que NÃO são Tiger Team
+  const escalatedTickets = tickets.filter(t => 
+    t.isEscalated && 
+    !t.isTigerTeam && 
+    t.status !== TicketStatus.CLOSED && 
+    t.status !== TicketStatus.RESOLVED
+  ).length;
+
+  const tigerTeamTickets = tickets.filter(t => 
+    t.isTigerTeam && 
+    t.status !== TicketStatus.CLOSED && 
+    t.status !== TicketStatus.RESOLVED
+  ).length;
+
   const resolvedTickets = tickets.filter(t => t.status === TicketStatus.RESOLVED || t.status === TicketStatus.CLOSED).length;
   const openTickets = tickets.filter(t => t.status === TicketStatus.OPEN).length;
 
@@ -41,7 +54,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ tickets }) => {
           title="Escalonados" 
           value={escalatedTickets} 
           icon={AlertOctagon} 
-          trend={escalatedTickets > 0 ? "Em aberto" : "Normal"}
+          trend={escalatedTickets > 0 ? "Fila N2" : "Limpo"}
           colorClass="bg-red-500" 
         />
         <StatsCard 
