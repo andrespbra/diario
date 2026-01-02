@@ -6,12 +6,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Diário de Bordo</title>
     <script>
-      // Polyfill resiliente - Preserva process.env se já existir
-      if (typeof window !== 'undefined') {
-        window.process = window.process || {};
-        window.process.env = window.process.env || {};
-        if (!window.process.env.NODE_ENV) window.process.env.NODE_ENV = 'production';
-      }
+      // Garante que o objeto process exista sem sobrescrever o que já foi injetado pelo servidor
+      window.process = window.process || {};
+      window.process.env = window.process.env || {};
+      if (!window.process.env.NODE_ENV) window.process.env.NODE_ENV = 'production';
     </script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -19,7 +17,7 @@
       body {
         font-family: 'Inter', sans-serif;
         background-color: #f3f4f6;
-        user-select: none; /* Previne seleção acidental em telas de toque */
+        user-select: none;
       }
       ::-webkit-scrollbar {
         width: 6px;
