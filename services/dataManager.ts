@@ -1,5 +1,5 @@
 
-import { supabase, isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from '../lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
 import { createClient } from '@supabase/supabase-js';
 import { Ticket, UserProfile, TicketStatus, TicketPriority } from '../types';
 
@@ -53,22 +53,22 @@ const preparePayload = (ticket: Partial<Ticket>) => {
 export const DataManager = {
   authenticate: async (username: string, password: string): Promise<UserProfile> => {
     if (!isSupabaseConfigured) {
-      throw new Error("Configuração do banco de dados (Supabase) não encontrada.");
+      throw new Error("Erro de Configuração: As chaves do Supabase não foram encontradas no ambiente.");
     }
 
     const email = username.includes('@') ? username : `${username}${VIRTUAL_DOMAIN}`;
     
-    const { data: authData, error: authError } = await (supabase.auth as any).signInWithPassword({
+    const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
         password
     });
 
     if (authError) {
-        console.error("Erro Auth:", authError);
+        console.error("Supabase Auth Error:", authError);
         throw new Error(authError.message === 'Invalid login credentials' ? 'Usuário ou senha incorretos' : authError.message);
     }
     
-    if (!authData.user) throw new Error('Erro ao obter sessão de usuário.');
+    if (!authData.user) throw new Error('Falha ao autenticar usuário.');
 
     const { data: profileData, error: profileError } = await supabase
         .from('user_profiles')
@@ -77,7 +77,7 @@ export const DataManager = {
         .single();
 
     if (profileError) {
-        console.warn("Perfil não encontrado, usando dados básicos da conta.");
+        console.warn("Perfil não encontrado em user_profiles, gerando perfil temporário.");
         return {
             id: authData.user.id,
             name: username,
@@ -99,7 +99,7 @@ export const DataManager = {
   getSession: async (): Promise<UserProfile | null> => {
       if (!isSupabaseConfigured) return null;
 
-      const { data: { session } } = await (supabase.auth as any).getSession();
+      const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return null;
 
       const { data, error } = await supabase
@@ -108,41 +108,29 @@ export const DataManager = {
         .eq('id', session.user.id)
         .single();
       
-      if (error) {
-          console.error("Erro ao recuperar perfil da sessão:", error);
-          return null;
-      }
+      if (error || !data) return null;
       
-      if (data) {
-          return {
-              id: data.id,
-              name: data.name,
-              username: data.username,
-              nivel: data.nivel,
-              mustChangePassword: data.must_change_password
-          };
-      }
-      return null;
+      return {
+          id: data.id,
+          name: data.name,
+          username: data.username,
+          nivel: data.nivel,
+          mustChangePassword: data.must_change_password
+      };
   },
 
   logout: async (): Promise<void> => {
-      if (isSupabaseConfigured) await (supabase.auth as any).signOut();
+      if (isSupabaseConfigured) await supabase.auth.signOut();
   },
 
-  // Fix: Added missing changePassword method to update the user's password in Supabase Auth and reset the requirement flag in their profile.
   changePassword: async (username: string, newPassword: string): Promise<void> => {
     if (!isSupabaseConfigured) return;
-
-    const { error: authError } = await (supabase.auth as any).updateUser({ password: newPassword });
+    const { error: authError } = await supabase.auth.updateUser({ password: newPassword });
     if (authError) throw authError;
 
-    const { data: { user } } = await (supabase.auth as any).getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      const { error: profileError } = await supabase
-        .from('user_profiles')
-        .update({ must_change_password: false })
-        .eq('id', user.id);
-      if (profileError) throw profileError;
+      await supabase.from('user_profiles').update({ must_change_password: false }).eq('id', user.id);
     }
   },
 
@@ -159,43 +147,26 @@ export const DataManager = {
     }));
   },
 
-  // Fix: Added missing addUser method to register new users in Supabase Auth and initialize their profiles in the user_profiles table.
   addUser: async (newUserProfile: UserProfile, password?: string): Promise<void> => {
     if (!isSupabaseConfigured) return;
-
-    const email = newUserProfile.username.includes('@') 
-      ? newUserProfile.username 
-      : `${newUserProfile.username}${VIRTUAL_DOMAIN}`;
-
-    const { data: authData, error: authError } = await (supabase.auth as any).signUp({
+    const email = newUserProfile.username.includes('@') ? newUserProfile.username : `${newUserProfile.username}${VIRTUAL_DOMAIN}`;
+    const { data: authData, error: authError } = await supabase.auth.signUp({
       email,
-      password: password || 'Default123!',
-      options: {
-        data: {
-          name: newUserProfile.name,
-          username: newUserProfile.username,
-          nivel: newUserProfile.nivel
-        }
-      }
+      password: password || 'Mudar123!',
+      options: { data: { name: newUserProfile.name, nivel: newUserProfile.nivel } }
     });
-
     if (authError) throw authError;
-    if (!authData.user) throw new Error("Falha ao criar usuário.");
-
-    const { error: profileError } = await supabase
-      .from('user_profiles')
-      .upsert({
+    if (authData.user) {
+      await supabase.from('user_profiles').upsert({
         id: authData.user.id,
         name: newUserProfile.name,
         username: newUserProfile.username,
         nivel: newUserProfile.nivel,
         must_change_password: true
       });
-
-    if (profileError) throw profileError;
+    }
   },
 
-  // Fix: Added missing deleteUser method to remove user profiles from the database.
   deleteUser: async (userId: string): Promise<void> => {
     if (!isSupabaseConfigured) return;
     const { error } = await supabase.from('user_profiles').delete().eq('id', userId);
@@ -203,25 +174,18 @@ export const DataManager = {
   },
 
   getTickets: async (): Promise<Ticket[]> => {
-    if (!isSupabaseConfigured) {
-        console.warn("Supabase não configurado para getTickets.");
-        return [];
-    }
+    if (!isSupabaseConfigured) return [];
     
-    const { data: authData } = await (supabase.auth as any).getUser();
-    const user = authData?.user;
-    if (!user) return [];
-
-    // Busca todos os tickets visíveis (o RLS cuidará do filtro de segurança se necessário)
-    // No sql.txt definimos que qualquer autenticado pode ver, mas se preferir restringir via código:
+    // Simplificado: Removemos o filtro OR complexo do lado do cliente.
+    // Confiamos nas políticas de RLS no banco para filtrar o que o usuário pode ver.
     const { data, error } = await supabase
       .from('tickets')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) {
-        console.error("Falha ao buscar tickets:", error);
-        throw new Error(`Erro no banco de dados: ${error.message}`);
+        console.error("DataManager Error (getTickets):", error);
+        throw new Error(`Erro ao conectar com o banco de dados: ${error.message}`);
     }
 
     if (!data) return [];
@@ -268,26 +232,14 @@ export const DataManager = {
 
   addTicket: async (ticket: Ticket): Promise<void> => {
       if (!isSupabaseConfigured) return;
-      const dbPayload = preparePayload(ticket);
-      const { error } = await supabase.from('tickets').insert([dbPayload]);
-      if (error) {
-          console.error("Erro ao inserir ticket:", error);
-          throw error;
-      }
+      const { error } = await supabase.from('tickets').insert([preparePayload(ticket)]);
+      if (error) throw error;
   },
 
   updateTicket: async (updatedTicket: Ticket): Promise<void> => {
       if (!isSupabaseConfigured) return;
-      if (!updatedTicket.id) throw new Error("ID do chamado ausente.");
-      const dbPayload = preparePayload(updatedTicket);
-      const { error } = await supabase
-        .from('tickets')
-        .update(dbPayload)
-        .eq('id', updatedTicket.id);
-      if (error) {
-          console.error("Erro ao atualizar ticket:", error);
-          throw error;
-      }
+      const { error } = await supabase.from('tickets').update(preparePayload(updatedTicket)).eq('id', updatedTicket.id);
+      if (error) throw error;
   },
 
   deleteTicket: async (ticketId: string): Promise<void> => {

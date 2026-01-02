@@ -1,34 +1,28 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-// Safe access to environment variables
-const getEnvVar = (key: string, viteKey: string) => {
-  let value = '';
-  try {
-    // Check import.meta.env (Vite)
-    if (typeof import.meta !== 'undefined' && (import.meta as any).env) {
-      value = (import.meta as any).env[viteKey] || '';
-    }
-    // Check process.env (Node/Webpack fallback)
-    if (!value && typeof process !== 'undefined' && process.env) {
-      value = process.env[key] || '';
-    }
-    // Global fallback
-    if (!value && typeof window !== 'undefined') {
-        value = (window as any)._env_?.[key] || '';
-    }
-  } catch (e) {
-    console.warn('Error reading env vars', e);
-  }
-  return value;
+// Função robusta para capturar as chaves do Supabase de diferentes possíveis fontes de ambiente
+const getEnvVar = (key: string) => {
+  if (typeof window !== 'undefined' && (window as any).process?.env?.[key]) return (window as any).process.env[key];
+  if (typeof process !== 'undefined' && process.env?.[key]) return process.env[key];
+  // @ts-ignore - Fallback para Vite se disponível
+  if (typeof import.meta !== 'undefined' && import.meta.env?.[`VITE_${key}`]) return import.meta.env[`VITE_${key}`];
+  return '';
 };
 
-const url = getEnvVar('SUPABASE_URL', 'VITE_SUPABASE_URL');
-const key = getEnvVar('SUPABASE_ANON_KEY', 'VITE_SUPABASE_ANON_KEY');
+const url = getEnvVar('SUPABASE_URL');
+const key = getEnvVar('SUPABASE_ANON_KEY');
 
-export const isSupabaseConfigured = !!url && url.length > 20 && !url.includes('placeholder');
+export const isSupabaseConfigured = !!url && url.length > 10 && !url.includes('placeholder');
 
-export const supabaseUrl = url || 'https://placeholder.supabase.co';
+// Se não estiver configurado, usamos o placeholder para evitar crash imediato, 
+// mas o isSupabaseConfigured avisará a UI
+export const supabaseUrl = url || 'https://placeholder-project.supabase.co';
 export const supabaseAnonKey = key || 'placeholder-key';
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+  }
+});
