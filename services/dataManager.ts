@@ -61,36 +61,58 @@ const preparePayload = (ticket: Partial<Ticket>) => {
 };
 
 export const DataManager = {
-  // ATIVOS
+  // ATIVOS COM PAGINAÇÃO AUTOMÁTICA
   getAssets: async (): Promise<Asset[]> => {
     if (!isSupabaseConfigured) return [];
-    const { data, error } = await supabase
-        .from('assets')
-        .select('*')
-        .order('hostname', { ascending: true });
+    
+    let allAssets: any[] = [];
+    let from = 0;
+    const step = 1000;
+    let hasMore = true;
+
+    try {
+      while (hasMore) {
+        const { data, error } = await supabase
+            .from('assets')
+            .select('*')
+            .range(from, from + step - 1)
+            .order('hostname', { ascending: true });
+            
+        if (error) throw error;
         
-    if (error) {
-        console.error("Erro Supabase getAssets:", error);
-        return [];
+        if (data && data.length > 0) {
+          allAssets = [...allAssets, ...data];
+          if (data.length < step) {
+            hasMore = false;
+          } else {
+            from += step;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      return allAssets.map(a => ({
+          id: a.id,
+          termId: a.term_id,
+          hostname: a.hostname,
+          serialNumber: a.serial_number,
+          locationName: a.location_name,
+          filial: a.filial,
+          codSite: a.cod_site,
+          equipTipo2: a.equip_tipo_2,
+          produto: a.produto,
+          updatedAt: a.updated_at ? new Date(a.updated_at) : undefined
+      }));
+    } catch (err) {
+      console.error("Erro ao buscar ativos:", err);
+      return [];
     }
-    return (data || []).map(a => ({
-        id: a.id,
-        termId: a.term_id,
-        hostname: a.hostname,
-        serialNumber: a.serial_number,
-        locationName: a.location_name,
-        filial: a.filial,
-        codSite: a.cod_site,
-        equipTipo2: a.equip_tipo_2,
-        produto: a.produto,
-        updatedAt: a.updated_at ? new Date(a.updated_at) : undefined
-    }));
   },
 
   upsertAssets: async (assets: Asset[]) => {
     if (!isSupabaseConfigured) return 0;
     
-    // Divide em lotes de 100 para evitar erros de payload
     const batchSize = 100;
     let totalInserted = 0;
 
@@ -184,50 +206,79 @@ export const DataManager = {
 
   getTickets: async (userId: string, isAdmin: boolean): Promise<Ticket[]> => {
     if (!isSupabaseConfigured) return [];
-    let query = supabase.from('tickets').select('*');
-    if (!isAdmin) query = query.eq('user_id', userId);
-    const { data, error } = await query.order('created_at', { ascending: false });
-    if (error) return [];
-    return (data || []).map((t: any) => ({
-        ...t,
-        userId: t.user_id,
-        customerName: t.customer_name,
-        locationName: t.location_name,
-        termId: t.term_id,
-        serialNumber: t.n_serie,
-        taskId: t.task_id,
-        serviceRequest: t.service_request,
-        analystName: t.analyst_name,
-        supportStartTime: t.support_start_time,
-        supportEndTime: t.support_end_time,
-        analystAction: t.analyst_action,
-        isDueCall: t.is_due_call,
-        usedACFS: t.used_acfs,
-        hasInkStaining: t.has_ink_staining,
-        partReplaced: t.part_replaced,
-        partDescription: t.part_description,
-        tagVLDD: t.tag_vldd,
-        tagNLVDD: t.tag_nlvdd,
-        testWithCard: t.test_with_card,
-        sicWithdrawal: t.sic_withdrawal,
-        sicDeposit: t.sic_deposit,
-        sicSensors: t.sic_sensors,
-        sicSmartPower: t.sic_smart_power,
-        clientWitnessName: t.client_witness_name,
-        clientWitnessId: t.client_witness_id,
-        validatedBy: t.validated_by,
-        validatedAt: t.validated_at ? new Date(t.validated_at) : undefined,
-        aiSuggestedSolution: t.ai_suggested_solution,
-        status: t.status as TicketStatus,
-        priority: t.priority as TicketPriority,
-        isEscalated: t.is_escalated,
-        isTigerTeam: t.is_tiger_team,
-        createdAt: new Date(t.created_at),
-        filial: t.filial,
-        codSite: t.cod_site,
-        equipTipo2: t.equip_tipo_2,
-        produto: t.produto
-    }));
+    
+    let allTickets: any[] = [];
+    let from = 0;
+    const step = 1000;
+    let hasMore = true;
+
+    try {
+      while (hasMore) {
+        let query = supabase.from('tickets').select('*');
+        if (!isAdmin) query = query.eq('user_id', userId);
+        
+        const { data, error } = await query
+            .range(from, from + step - 1)
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        if (data && data.length > 0) {
+          allTickets = [...allTickets, ...data];
+          if (data.length < step) {
+            hasMore = false;
+          } else {
+            from += step;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+
+      return allTickets.map((t: any) => ({
+          ...t,
+          userId: t.user_id,
+          customerName: t.customer_name,
+          locationName: t.location_name,
+          termId: t.term_id,
+          serialNumber: t.n_serie,
+          taskId: t.task_id,
+          serviceRequest: t.service_request,
+          analystName: t.analyst_name,
+          supportStartTime: t.support_start_time,
+          supportEndTime: t.support_end_time,
+          analystAction: t.analyst_action,
+          isDueCall: t.is_due_call,
+          usedACFS: t.used_acfs,
+          hasInkStaining: t.has_ink_staining,
+          partReplaced: t.part_replaced,
+          partDescription: t.part_description,
+          tagVLDD: t.tag_vldd,
+          tagNLVDD: t.tag_nlvdd,
+          testWithCard: t.test_with_card,
+          sicWithdrawal: t.sic_withdrawal,
+          sicDeposit: t.sic_deposit,
+          sicSensors: t.sic_sensors,
+          sicSmartPower: t.sic_smart_power,
+          clientWitnessName: t.client_witness_name,
+          clientWitnessId: t.client_witness_id,
+          validatedBy: t.validated_by,
+          validatedAt: t.validated_at ? new Date(t.validated_at) : undefined,
+          aiSuggestedSolution: t.ai_suggested_solution,
+          status: t.status as TicketStatus,
+          priority: t.priority as TicketPriority,
+          isEscalated: t.is_escalated,
+          isTigerTeam: t.is_tiger_team,
+          createdAt: new Date(t.created_at),
+          filial: t.filial,
+          codSite: t.cod_site,
+          equipTipo2: t.equip_tipo_2,
+          produto: t.produto
+      }));
+    } catch (err) {
+      console.error("Erro ao buscar tickets:", err);
+      return [];
+    }
   },
 
   addTicket: async (ticket: Ticket) => {
