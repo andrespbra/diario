@@ -19,7 +19,8 @@ import {
   Filter,
   ArrowRight,
   X,
-  Info
+  Info,
+  Package
 } from 'lucide-react';
 import Papa from 'papaparse';
 
@@ -53,6 +54,15 @@ export const AssetManager: React.FC = () => {
     }
   };
 
+  // Cálculo de estatísticas da base
+  const assetStats = useMemo(() => {
+    const total = assets.length;
+    const uniqueSites = new Set(assets.map(a => a.codSite).filter(Boolean)).size;
+    const uniqueProducts = new Set(assets.map(a => a.produto).filter(Boolean)).size;
+    
+    return { total, uniqueSites, uniqueProducts };
+  }, [assets]);
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -76,7 +86,6 @@ export const AssetManager: React.FC = () => {
           const rows = results.data;
           if (!rows || rows.length === 0) throw new Error("O arquivo selecionado parece estar vazio.");
 
-          // Mapeamento Ultra-Resiliente (Ignora caracteres especiais nos nomes das colunas)
           const getValue = (row: any, aliases: string[]) => {
             const keys = Object.keys(row);
             const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -91,7 +100,6 @@ export const AssetManager: React.FC = () => {
 
           const mappedAssets: Asset[] = rows.map((row: any) => {
             const hostname = getValue(row, ['HOSTNAME', 'HOST']);
-            // Se não houver hostname, tentamos o TERM ID como fallback ou ignoramos
             if (!hostname) return null;
 
             return {
@@ -143,6 +151,7 @@ export const AssetManager: React.FC = () => {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 h-full flex flex-col">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -164,7 +173,40 @@ export const AssetManager: React.FC = () => {
             <input type="file" accept=".csv" onChange={handleFileUpload} className="hidden" disabled={importing} />
           </label>
           
-          <button onClick={loadAssets} disabled={loading} className="p-2 text-gray-400 hover:text-indigo-600 bg-white border border-gray-200 rounded-lg shadow-sm"><RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} /></button>
+          <button onClick={loadAssets} disabled={loading} className="p-2 text-gray-400 hover:text-indigo-600 bg-white border border-gray-200 rounded-lg shadow-sm" title="Atualizar base"><RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} /></button>
+        </div>
+      </div>
+
+      {/* Stats Cards Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4 transition-all hover:shadow-md">
+          <div className="bg-indigo-50 p-3 rounded-xl text-indigo-600">
+            <Monitor className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Total de Ativos</p>
+            <p className="text-2xl font-black text-gray-900">{assetStats.total.toLocaleString()}</p>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4 transition-all hover:shadow-md">
+          <div className="bg-emerald-50 p-3 rounded-xl text-emerald-600">
+            <MapPin className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Sites Únicos</p>
+            <p className="text-2xl font-black text-gray-900">{assetStats.uniqueSites.toLocaleString()}</p>
+          </div>
+        </div>
+
+        <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm flex items-center gap-4 transition-all hover:shadow-md">
+          <div className="bg-amber-50 p-3 rounded-xl text-amber-600">
+            <Package className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-wider">Modelos de Produto</p>
+            <p className="text-2xl font-black text-gray-900">{assetStats.uniqueProducts.toLocaleString()}</p>
+          </div>
         </div>
       </div>
 
@@ -191,6 +233,24 @@ export const AssetManager: React.FC = () => {
         </div>
       )}
 
+      {/* Search Bar */}
+      <div className="relative">
+        <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+        <input 
+          type="text" 
+          placeholder="Pesquisar por Hostname, S/N, Localização ou Term ID..." 
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none w-full bg-white shadow-sm text-sm"
+        />
+        {searchTerm && (
+          <button onClick={() => setSearchTerm('')} className="absolute right-3 top-3 text-gray-400 hover:text-indigo-600">
+            <X className="w-4 h-4" />
+          </button>
+        )}
+      </div>
+
+      {/* List / Table Area */}
       <div className="flex-1 min-h-0 bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col">
           <div className="overflow-auto flex-1">
             {loading && assets.length === 0 ? (
@@ -280,8 +340,9 @@ export const AssetManager: React.FC = () => {
               </div>
             )}
           </div>
+          {/* Footer with connection status */}
           <div className="bg-gray-50 px-6 py-3 border-t border-gray-200 text-[10px] font-bold text-gray-400 uppercase tracking-widest flex justify-between items-center">
-            <span>{filteredAssets.length} registros</span>
+            <span>Mostrando {filteredAssets.length} de {assets.length} registros</span>
             <div className="flex items-center gap-2">
                 <div className={`w-2 h-2 rounded-full ${isSupabaseConfigured ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`}></div>
                 <span className={isSupabaseConfigured ? 'text-green-600' : 'text-gray-400'}>{isSupabaseConfigured ? 'Sincronizado' : 'Modo Demo'}</span>
