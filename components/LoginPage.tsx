@@ -1,9 +1,9 @@
 
 import React, { useState } from 'react';
-import { User, Lock, ArrowRight, Headphones, Loader2, AlertCircle, Cloud, AlertTriangle } from 'lucide-react';
+import { User, Lock, ArrowRight, Headphones, Loader2, AlertCircle, Cloud, AlertTriangle, Zap } from 'lucide-react';
 import { DataManager } from '../services/dataManager';
 import { UserProfile } from '../types';
-import { isSupabaseConfigured, supabaseUrl, supabaseAnonKey } from '../lib/supabaseClient';
+import { isSupabaseConfigured } from '../lib/supabaseClient';
 
 interface LoginPageProps {
     onLoginSuccess: (user: UserProfile) => void;
@@ -18,15 +18,6 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!isSupabaseConfigured) {
-      const missing = [];
-      if (!supabaseUrl || supabaseUrl.includes('placeholder')) missing.push('SUPABASE_URL');
-      if (!supabaseAnonKey || supabaseAnonKey.includes('placeholder')) missing.push('SUPABASE_ANON_KEY');
-      
-      setError(`Configuração ausente: ${missing.join(', ')}. Adicione estas variáveis de ambiente.`);
-      return;
-    }
-
     setLoading(true);
     setError(null);
 
@@ -52,16 +43,30 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
                 </div>
                 <h1 className="text-2xl font-bold text-white tracking-tight">Diário de Bordo</h1>
                 <p className="text-gray-400 text-sm">
-                    Acesso Seguro (Cloud Online)
+                    {isSupabaseConfigured ? 'Acesso Seguro (Cloud Online)' : 'Modo de Demonstração (Offline)'}
                 </p>
              </div>
 
              {!isSupabaseConfigured && (
-                <div className="bg-amber-500/10 border border-amber-500/50 rounded-lg p-3 flex items-start gap-2 text-amber-200 text-sm animate-pulse">
-                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" />
-                    <div className="space-y-1">
-                        <p className="font-bold">Atenção: Variáveis não detectadas!</p>
-                        <p className="text-xs opacity-80">Verifique se as chaves SUPABASE_URL e SUPABASE_ANON_KEY foram configuradas nas variáveis de ambiente.</p>
+                <div className="bg-amber-500/10 border border-amber-500/50 rounded-xl p-4 flex flex-col gap-3 text-amber-200 text-sm">
+                    <div className="flex items-start gap-2">
+                        <Zap className="w-5 h-5 shrink-0 text-amber-500" />
+                        <div className="space-y-1">
+                            <p className="font-bold">Banco de Dados não detectado!</p>
+                            <p className="text-xs opacity-80 leading-relaxed text-amber-100/70">
+                                Para testar o aplicativo agora mesmo, use as credenciais de demonstração:
+                            </p>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2 mt-1 font-mono text-xs">
+                        <div className="bg-amber-500/20 px-3 py-2 rounded-lg border border-amber-500/30">
+                            <p className="text-amber-500 font-bold uppercase mb-0.5">User</p>
+                            <p className="text-white">admin</p>
+                        </div>
+                        <div className="bg-amber-500/20 px-3 py-2 rounded-lg border border-amber-500/30">
+                            <p className="text-amber-500 font-bold uppercase mb-0.5">Pass</p>
+                            <p className="text-white">admin</p>
+                        </div>
                     </div>
                 </div>
              )}
@@ -117,7 +122,7 @@ export const LoginPage: React.FC<LoginPageProps> = ({ onLoginSuccess }) => {
              
              <div className="pt-2 border-t border-gray-800/50">
                  <div className="mt-2 flex items-center justify-center gap-2 text-xs text-gray-500">
-                     <Cloud className="w-3 h-3" /> {isSupabaseConfigured ? 'Pronto para conectar' : 'Modo Diagnóstico'}
+                     <Cloud className="w-3 h-3" /> {isSupabaseConfigured ? 'Pronto para conectar' : 'Modo Diagnóstico Ativo'}
                  </div>
              </div>
           </div>

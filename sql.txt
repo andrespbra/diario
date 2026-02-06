@@ -1,82 +1,38 @@
 
--- SCRIPT DE REPARAÇÃO DE TABELA E SEGURANÇA
--- Execute este script para garantir que a tabela de tickets aceite novos registros
-
--- 1. Garantir que a tabela existe com as colunas corretas
-CREATE TABLE IF NOT EXISTS public.tickets (
+-- SCRIPT DE CRIAÇÃO DA TABELA DE ATIVOS
+CREATE TABLE IF NOT EXISTS public.assets (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    user_id UUID REFERENCES auth.users ON DELETE SET NULL,
-    customer_name TEXT,
+    term_id TEXT,
+    produto TEXT,
+    hostname TEXT UNIQUE,
+    serial_number TEXT,
+    equip_tipo_2 TEXT,
+    filial TEXT,
+    cod_site TEXT,
     location_name TEXT,
-    task_id TEXT,
-    service_request TEXT,
-    hostname TEXT,
-    n_serie TEXT,
-    subject TEXT,
-    analyst_name TEXT,
-    support_start_time TEXT,
-    support_end_time TEXT,
-    description TEXT,
-    analyst_action TEXT,
-    is_due_call BOOLEAN DEFAULT FALSE,
-    used_acfs BOOLEAN DEFAULT FALSE,
-    has_ink_staining BOOLEAN DEFAULT FALSE,
-    part_replaced BOOLEAN DEFAULT FALSE,
-    part_description TEXT,
-    tag_vldd BOOLEAN DEFAULT FALSE,
-    tag_nlvdd BOOLEAN DEFAULT FALSE,
-    test_with_card BOOLEAN DEFAULT FALSE,
-    sic_withdrawal BOOLEAN DEFAULT FALSE,
-    sic_deposit BOOLEAN DEFAULT FALSE,
-    sic_sensors BOOLEAN DEFAULT FALSE,
-    sic_smart_power BOOLEAN DEFAULT FALSE,
-    client_witness_name TEXT,
-    client_witness_id TEXT,
-    status TEXT DEFAULT 'Aberto',
-    priority TEXT DEFAULT 'Média',
-    is_escalated BOOLEAN DEFAULT FALSE,
-    is_tiger_team BOOLEAN DEFAULT FALSE,
-    ai_suggested_solution TEXT,
-    validated_by TEXT,
-    validated_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ DEFAULT NOW(),
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Limpeza de políticas para evitar conflitos
-ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
+-- Habilitar RLS
+ALTER TABLE public.assets ENABLE ROW LEVEL SECURITY;
 
-DROP POLICY IF EXISTS "tickets_select_policy" ON public.tickets;
-DROP POLICY IF EXISTS "tickets_insert_policy" ON public.tickets;
-DROP POLICY IF EXISTS "tickets_update_policy" ON public.tickets;
-DROP POLICY IF EXISTS "tickets_delete_policy" ON public.tickets;
+-- Políticas
+DROP POLICY IF EXISTS "assets_select_policy" ON public.assets;
+DROP POLICY IF EXISTS "assets_insert_policy" ON public.assets;
+DROP POLICY IF EXISTS "assets_update_policy" ON public.assets;
 
--- 3. Políticas Robustas (Usando metadados do JWT para performance e evitar recursão)
--- SELECT: Analista vê os seus / Admin vê tudo
-CREATE POLICY "tickets_select_policy" ON public.tickets 
-FOR SELECT TO authenticated 
-USING (
-  auth.uid() = user_id OR 
-  (auth.jwt() -> 'user_metadata' ->> 'nivel') = 'Admin'
-);
+CREATE POLICY "assets_select_policy" ON public.assets FOR SELECT TO authenticated USING (true);
+CREATE POLICY "assets_insert_policy" ON public.assets FOR INSERT TO authenticated WITH CHECK (true);
+CREATE POLICY "assets_update_policy" ON public.assets FOR UPDATE TO authenticated USING (true);
 
--- INSERT: Qualquer usuário autenticado pode inserir seu próprio registro
-CREATE POLICY "tickets_insert_policy" ON public.tickets 
-FOR INSERT TO authenticated 
-WITH CHECK (true);
+-- Permissões
+GRANT ALL ON TABLE public.assets TO authenticated;
+GRANT ALL ON TABLE public.assets TO service_role;
 
--- UPDATE: Dono ou Admin podem alterar
-CREATE POLICY "tickets_update_policy" ON public.tickets 
-FOR UPDATE TO authenticated 
-USING (
-  auth.uid() = user_id OR 
-  (auth.jwt() -> 'user_metadata' ->> 'nivel') = 'Admin'
-);
-
--- DELETE: Apenas Admins
-CREATE POLICY "tickets_delete_policy" ON public.tickets 
-FOR DELETE TO authenticated 
-USING ((auth.jwt() -> 'user_metadata' ->> 'nivel') = 'Admin');
-
--- 4. Permissões de acesso
-GRANT ALL ON TABLE public.tickets TO authenticated;
-GRANT ALL ON TABLE public.tickets TO service_role;
+-- Atualizar Tabela de Tickets para incluir colunas de ativos (Opcional, mas útil para denormalização)
+ALTER TABLE public.tickets ADD COLUMN IF NOT EXISTS term_id TEXT;
+ALTER TABLE public.tickets ADD COLUMN IF NOT EXISTS filial TEXT;
+ALTER TABLE public.tickets ADD COLUMN IF NOT EXISTS cod_site TEXT;
+ALTER TABLE public.tickets ADD COLUMN IF NOT EXISTS equip_tipo_2 TEXT;
+ALTER TABLE public.tickets ADD COLUMN IF NOT EXISTS produto TEXT;

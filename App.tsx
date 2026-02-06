@@ -6,6 +6,7 @@ import { NewTicketForm } from './components/NewTicketForm';
 import { EscalationList } from './components/EscalationList';
 import { HistoryList } from './components/HistoryList';
 import { TigerTeam } from './components/TigerTeam';
+import { AssetManager } from './components/AssetManager';
 import { LoginPage } from './components/LoginPage';
 import { Settings } from './components/Settings';
 import { ChangePassword } from './components/ChangePassword';
@@ -290,6 +291,7 @@ const App: React.FC = () => {
             {currentView === 'new-ticket' && <NewTicketForm onSubmit={handleCreateTicket} currentUser={currentUser} />}
             {currentView === 'tiger-team' && <TigerTeam tickets={tickets} onResolve={handleResolveTicket} />}
             {currentView === 'escalations' && <EscalationList tickets={tickets} onResolve={handleResolveTicket} />}
+            {currentView === 'assets' && <AssetManager />}
             {currentView === 'history' && (
                 <HistoryList 
                     tickets={tickets} 

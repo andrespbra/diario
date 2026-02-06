@@ -24,6 +24,19 @@ export interface UserProfile {
   mustChangePassword?: boolean; // mustChangePassword
 }
 
+export interface Asset {
+  id?: string;
+  termId: string;      // SGPI (TERM ID)
+  produto: string;     // PRODUTO
+  hostname: string;    // HOSTNAME
+  serialNumber: string; // Equip|Serie
+  equipTipo2: string;   // Equip.|Tipo-2
+  filial: string;      // Filial
+  codSite: string;     // Cod. Site
+  locationName: string; // Site Nome
+  updatedAt?: Date;
+}
+
 export interface Ticket {
   id: string;
   userId: string; // Foreign Key linking to UserProfile.id (or user_id)
@@ -79,6 +92,14 @@ export interface Ticket {
   isEscalated: boolean;
   isTigerTeam: boolean; // Flag for #198 Tiger Team
   createdAt: Date;
+  
+  // Adicionais para o ticket se vinculados ao ativo
+  // Fix: Added termId to Ticket interface to ensure compatibility with Asset data and database schema
+  termId?: string;
+  filial?: string;
+  codSite?: string;
+  equipTipo2?: string;
+  produto?: string;
 }
 
-export type ViewState = 'dashboard' | 'new-ticket' | 'escalations' | 'history' | 'settings' | 'tiger-team';
+export type ViewState = 'dashboard' | 'new-ticket' | 'escalations' | 'history' | 'settings' | 'tiger-team' | 'assets';

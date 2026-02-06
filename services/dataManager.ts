@@ -1,8 +1,14 @@
 
 import { supabase, isSupabaseConfigured } from '../lib/supabaseClient';
-import { Ticket, UserProfile, TicketStatus, TicketPriority } from '../types';
+import { Ticket, UserProfile, TicketStatus, TicketPriority, Asset } from '../types';
 
 const VIRTUAL_DOMAIN = '@sys.local';
+
+// Usuários locais para Modo de Demonstração/Desenvolvimento
+const LOCAL_USERS: UserProfile[] = [
+    { id: 'demo-admin-id', username: 'admin', name: 'Administrador Demo', nivel: 'Admin', mustChangePassword: false },
+    { id: 'demo-analista-id', username: 'analista', name: 'Analista Demo', nivel: 'Analista', mustChangePassword: false }
+];
 
 const cleanValue = (val: any) => {
     if (val === undefined || val === null) return null;
@@ -10,12 +16,16 @@ const cleanValue = (val: any) => {
     return val;
 };
 
-// Mapeamento rigoroso entre Interface Frontend e Colunas do Banco (Supabase)
 const preparePayload = (ticket: Partial<Ticket>) => {
     return {
         user_id: cleanValue(ticket.userId),
         customer_name: cleanValue(ticket.customerName),
         location_name: cleanValue(ticket.locationName),
+        term_id: cleanValue(ticket.termId),
+        filial: cleanValue(ticket.filial),
+        cod_site: cleanValue(ticket.codSite),
+        equip_tipo_2: cleanValue(ticket.equipTipo2),
+        produto: cleanValue(ticket.produto),
         task_id: cleanValue(ticket.taskId),
         service_request: cleanValue(ticket.serviceRequest),
         hostname: cleanValue(ticket.hostname),
@@ -51,20 +61,99 @@ const preparePayload = (ticket: Partial<Ticket>) => {
 };
 
 export const DataManager = {
-  authenticate: async (username: string, password: string): Promise<UserProfile> => {
-    if (!isSupabaseConfigured) throw new Error("Supabase não configurado.");
-    const email = username.includes('@') ? username : `${username}${VIRTUAL_DOMAIN}`;
+  // ATIVOS
+  getAssets: async (): Promise<Asset[]> => {
+    if (!isSupabaseConfigured) return [];
+    const { data, error } = await supabase
+        .from('assets')
+        .select('*')
+        .order('hostname', { ascending: true });
+        
+    if (error) {
+        console.error("Erro Supabase getAssets:", error);
+        return [];
+    }
+    return (data || []).map(a => ({
+        id: a.id,
+        termId: a.term_id,
+        hostname: a.hostname,
+        serialNumber: a.serial_number,
+        locationName: a.location_name,
+        filial: a.filial,
+        codSite: a.cod_site,
+        equipTipo2: a.equip_tipo_2,
+        produto: a.produto,
+        updatedAt: a.updated_at ? new Date(a.updated_at) : undefined
+    }));
+  },
+
+  upsertAssets: async (assets: Asset[]) => {
+    if (!isSupabaseConfigured) return 0;
     
+    // Divide em lotes de 100 para evitar erros de payload
+    const batchSize = 100;
+    let totalInserted = 0;
+
+    for (let i = 0; i < assets.length; i += batchSize) {
+        const chunk = assets.slice(i, i + batchSize).map(a => ({
+            term_id: a.termId,
+            hostname: a.hostname,
+            serial_number: a.serialNumber,
+            location_name: a.locationName,
+            filial: a.filial,
+            cod_site: a.codSite,
+            equip_tipo_2: a.equipTipo2,
+            produto: a.produto,
+            updated_at: new Date().toISOString()
+        }));
+
+        const { error } = await supabase.from('assets').upsert(chunk, { 
+            onConflict: 'hostname',
+            ignoreDuplicates: false 
+        });
+        
+        if (error) {
+            console.error("Erro no lote de upsert:", error);
+            throw error;
+        }
+        totalInserted += chunk.length;
+    }
+    return totalInserted;
+  },
+
+  searchAsset: async (term: string): Promise<Asset[]> => {
+    if (!isSupabaseConfigured || term.length < 2) return [];
+    const { data, error } = await supabase
+        .from('assets')
+        .select('*')
+        .or(`hostname.ilike.%${term}%,serial_number.ilike.%${term}%,term_id.ilike.%${term}%`)
+        .limit(8);
+    if (error) return [];
+    return (data || []).map(a => ({
+        termId: a.term_id,
+        hostname: a.hostname,
+        serialNumber: a.serial_number,
+        locationName: a.location_name,
+        filial: a.filial,
+        codSite: a.cod_site,
+        equipTipo2: a.equip_tipo_2,
+        produto: a.produto
+    }));
+  },
+
+  // AUTENTICAÇÃO
+  authenticate: async (username: string, password: string): Promise<UserProfile> => {
+    if (!isSupabaseConfigured) {
+        const found = LOCAL_USERS.find(u => u.username === username && password === username);
+        if (found) return found;
+        throw new Error("Credenciais incorretas (Dica: admin/admin)");
+    }
+    const email = username.includes('@') ? username : `${username}${VIRTUAL_DOMAIN}`;
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({ email, password });
     if (authError) throw new Error("Login falhou: " + authError.message);
 
     try {
-        const { data: profile } = await supabase
-            .from('user_profiles')
-            .select('*')
-            .eq('id', authData.user.id)
-            .single();
-
+        const { data: profile } = await supabase.from('user_profiles').select('*').eq('id', authData.user.id).single();
         return {
             id: authData.user.id,
             name: profile?.name || authData.user.user_metadata?.name || username,
@@ -73,131 +162,94 @@ export const DataManager = {
             mustChangePassword: profile?.must_change_password || false
         };
     } catch (e) {
-        return {
-            id: authData.user.id,
-            name: authData.user.user_metadata?.name || username,
-            username: username,
-            nivel: (authData.user.user_metadata?.nivel as any) || 'Analista',
-            mustChangePassword: false
-        };
+        return { id: authData.user.id, name: username, username, nivel: 'Analista', mustChangePassword: false };
     }
   },
 
   getSession: async (): Promise<UserProfile | null> => {
       if (!isSupabaseConfigured) return null;
-      const { data: { session }, error: sError } = await supabase.auth.getSession();
-      if (sError || !session?.user) return null;
-      
-      try {
-          const { data: profile } = await supabase
-              .from('user_profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .maybeSingle();
-          
-          return {
-              id: session.user.id,
-              name: profile?.name || session.user.user_metadata?.name || 'Usuário',
-              username: profile?.username || session.user.user_metadata?.username || 'login',
-              nivel: (profile?.nivel || session.user.user_metadata?.nivel || 'Analista') as any,
-              mustChangePassword: profile?.must_change_password || false
-          };
-      } catch (err) {
-          return {
-              id: session.user.id,
-              name: session.user.user_metadata?.name || 'Usuário',
-              username: session.user.user_metadata?.username || 'login',
-              nivel: (session.user.user_metadata?.nivel as any) || 'Analista',
-              mustChangePassword: false
-          };
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return null;
+      const { data: profile } = await supabase.from('user_profiles').select('*').eq('id', session.user.id).maybeSingle();
+      return {
+          id: session.user.id,
+          name: profile?.name || 'Usuário',
+          username: profile?.username || 'login',
+          nivel: (profile?.nivel || 'Analista') as any,
+          mustChangePassword: profile?.must_change_password || false
+      };
   },
 
   logout: async () => { if (isSupabaseConfigured) await supabase.auth.signOut(); },
 
   getTickets: async (userId: string, isAdmin: boolean): Promise<Ticket[]> => {
     if (!isSupabaseConfigured) return [];
-    
     let query = supabase.from('tickets').select('*');
-    
-    if (!isAdmin) {
-        query = query.eq('user_id', userId);
-    }
-    
+    if (!isAdmin) query = query.eq('user_id', userId);
     const { data, error } = await query.order('created_at', { ascending: false });
-
-    if (error) {
-        console.error("Erro getTickets:", error);
-        if (error.code === '42P17') throw new Error("Erro de recursão detectado. Execute o SQL de reparo.");
-        throw new Error(error.message);
-    }
-
+    if (error) return [];
     return (data || []).map((t: any) => ({
-        id: t.id,
+        ...t,
         userId: t.user_id,
-        customerName: t.customer_name || '',
-        locationName: t.location_name || '',
-        taskId: t.task_id || '',
-        serviceRequest: t.service_request || '',
-        hostname: t.hostname || '',
-        serialNumber: t.n_serie || '',
-        subject: t.subject || '',
-        analystName: t.analyst_name || '',
-        supportStartTime: t.support_start_time || '',
-        supportEndTime: t.support_end_time || '',
-        description: t.description || '',
-        analystAction: t.analyst_action || '',
-        isDueCall: !!t.is_due_call,
-        usedACFS: !!t.used_acfs,
-        hasInkStaining: !!t.has_ink_staining,
-        partReplaced: !!t.part_replaced,
-        partDescription: t.part_description || '',
-        tagVLDD: !!t.tag_vldd,
-        tagNLVDD: !!t.tag_nlvdd,
-        testWithCard: !!t.test_with_card,
-        sicWithdrawal: !!t.sic_withdrawal,
-        sicDeposit: !!t.sic_deposit,
-        sicSensors: !!t.sic_sensors,
-        sicSmartPower: !!t.sic_smart_power,
-        clientWitnessName: t.client_witness_name || '',
-        clientWitnessId: t.client_witness_id || '',
-        validatedBy: t.validated_by || '',
+        customerName: t.customer_name,
+        locationName: t.location_name,
+        termId: t.term_id,
+        serialNumber: t.n_serie,
+        taskId: t.task_id,
+        serviceRequest: t.service_request,
+        analystName: t.analyst_name,
+        supportStartTime: t.support_start_time,
+        supportEndTime: t.support_end_time,
+        analystAction: t.analyst_action,
+        isDueCall: t.is_due_call,
+        usedACFS: t.used_acfs,
+        hasInkStaining: t.has_ink_staining,
+        partReplaced: t.part_replaced,
+        partDescription: t.part_description,
+        tagVLDD: t.tag_vldd,
+        tagNLVDD: t.tag_nlvdd,
+        testWithCard: t.test_with_card,
+        sicWithdrawal: t.sic_withdrawal,
+        sicDeposit: t.sic_deposit,
+        sicSensors: t.sic_sensors,
+        sicSmartPower: t.sic_smart_power,
+        clientWitnessName: t.client_witness_name,
+        clientWitnessId: t.client_witness_id,
+        validatedBy: t.validated_by,
         validatedAt: t.validated_at ? new Date(t.validated_at) : undefined,
-        aiSuggestedSolution: t.ai_suggested_solution || '',
-        status: (t.status as TicketStatus) || TicketStatus.OPEN,
-        priority: (t.priority as TicketPriority) || TicketPriority.MEDIUM,
-        isEscalated: !!t.is_escalated,
-        isTigerTeam: !!t.is_tiger_team,
-        createdAt: t.created_at ? new Date(t.created_at) : new Date(),
+        aiSuggestedSolution: t.ai_suggested_solution,
+        status: t.status as TicketStatus,
+        priority: t.priority as TicketPriority,
+        isEscalated: t.is_escalated,
+        isTigerTeam: t.is_tiger_team,
+        createdAt: new Date(t.created_at),
+        filial: t.filial,
+        codSite: t.cod_site,
+        equipTipo2: t.equip_tipo_2,
+        produto: t.produto
     }));
   },
 
   addTicket: async (ticket: Ticket) => {
-      const payload = preparePayload(ticket);
-      console.log("Enviando ticket para Supabase:", payload);
-      
-      const { data, error } = await supabase.from('tickets').insert([payload]).select();
-      
-      if (error) {
-          console.error("Erro detalhado do Supabase (INSERT):", error);
-          throw new Error(`Falha ao registrar chamado: ${error.message} (Código: ${error.code})`);
-      }
-      return data;
+      if (!isSupabaseConfigured) return;
+      const { error } = await supabase.from('tickets').insert([preparePayload(ticket)]);
+      if (error) throw error;
   },
 
   updateTicket: async (ticket: Ticket) => {
-      const payload = preparePayload(ticket);
-      // Remove o ID do payload para não tentar alterar a chave primária
-      const { error } = await supabase.from('tickets').update(payload).eq('id', ticket.id);
+      if (!isSupabaseConfigured) return;
+      const { error } = await supabase.from('tickets').update(preparePayload(ticket)).eq('id', ticket.id);
       if (error) throw error;
   },
 
   deleteTicket: async (id: string) => {
+      if (!isSupabaseConfigured) return;
       const { error } = await supabase.from('tickets').delete().eq('id', id);
       if (error) throw error;
   },
 
   getUsers: async (): Promise<UserProfile[]> => {
+    if (!isSupabaseConfigured) return [];
     const { data, error } = await supabase.from('user_profiles').select('*');
     if (error) throw error;
     return (data || []).map((u: any) => ({
@@ -210,6 +262,7 @@ export const DataManager = {
   },
 
   addUser: async (newUser: UserProfile, password?: string) => {
+    if (!isSupabaseConfigured) return;
     const email = newUser.username.includes('@') ? newUser.username : `${newUser.username}${VIRTUAL_DOMAIN}`;
     const { error } = await supabase.auth.signUp({
       email,
@@ -220,16 +273,16 @@ export const DataManager = {
   },
 
   deleteUser: async (userId: string) => {
+    if (!isSupabaseConfigured) return;
     const { error } = await supabase.from('user_profiles').delete().eq('id', userId);
     if (error) throw error;
   },
 
   changePassword: async (username: string, newPassword: string) => {
+    if (!isSupabaseConfigured) return;
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw error;
     const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-        await supabase.from('user_profiles').update({ must_change_password: false }).eq('id', user.id);
-    }
+    if (user) await supabase.from('user_profiles').update({ must_change_password: false }).eq('id', user.id);
   }
 };
