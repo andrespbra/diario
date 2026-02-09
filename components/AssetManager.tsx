@@ -20,11 +20,16 @@ import {
   ArrowRight,
   X,
   Info,
-  Package
+  Package,
+  PhoneCall
 } from 'lucide-react';
 import Papa from 'papaparse';
 
-export const AssetManager: React.FC = () => {
+interface AssetManagerProps {
+  onOpenTicket?: (asset: Asset) => void;
+}
+
+export const AssetManager: React.FC<AssetManagerProps> = ({ onOpenTicket }) => {
   const [assets, setAssets] = useState<Asset[]>([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -54,7 +59,6 @@ export const AssetManager: React.FC = () => {
     }
   };
 
-  // Cálculo de estatísticas da base
   const assetStats = useMemo(() => {
     const total = assets.length;
     const uniqueSites = new Set(assets.map(a => a.codSite).filter(Boolean)).size;
@@ -272,7 +276,7 @@ export const AssetManager: React.FC = () => {
                     <th className="px-6 py-4">SGPI / Site</th>
                     <th className="px-6 py-4">Nome do Site</th>
                     <th className="px-6 py-4">Tipo / Produto</th>
-                    <th className="px-6 py-4 text-right">Filial</th>
+                    <th className="px-6 py-4 text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -305,9 +309,13 @@ export const AssetManager: React.FC = () => {
                          </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <span className="text-[10px] font-black bg-slate-100 text-slate-600 px-2 py-1 rounded uppercase">
-                          {asset.filial.split('-')[0]}
-                        </span>
+                        <button 
+                          onClick={() => onOpenTicket?.(asset)}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold px-3 py-1.5 rounded flex items-center gap-2 ml-auto transition-all transform active:scale-95"
+                        >
+                          <PhoneCall className="w-3 h-3" />
+                          Chamado
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -332,7 +340,13 @@ export const AssetManager: React.FC = () => {
                         <p className="text-xs text-gray-700 font-semibold uppercase leading-tight line-clamp-2">{asset.locationName}</p>
                     </div>
                     <div className="mt-2 pt-3 border-t border-gray-50 flex justify-between items-center">
-                       <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{asset.produto.split(' ')[0]}</span>
+                       <button 
+                         onClick={() => onOpenTicket?.(asset)}
+                         className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all transform active:scale-95"
+                       >
+                         <PhoneCall className="w-3 h-3" />
+                         Abrir Chamado
+                       </button>
                        <span className="text-[9px] font-bold text-indigo-600 uppercase">{asset.codSite}</span>
                     </div>
                   </div>

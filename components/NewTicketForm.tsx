@@ -1,12 +1,13 @@
 
 import React, { useState, useEffect } from 'react';
-import { TicketPriority, TicketStatus, Ticket, UserProfile } from '../types';
+import { TicketPriority, TicketStatus, Ticket, UserProfile, Asset } from '../types';
 import { analyzeTicketProblem } from '../services/geminiService';
-import { Sparkles, Save, Loader2, User, FileText, MapPin, Hash, Monitor, Clock, Tag, Briefcase, Wrench, CheckSquare, Copy, Check, Users, AlertOctagon, Zap, Barcode } from 'lucide-react';
+import { Sparkles, Save, Loader2, User, FileText, MapPin, Hash, Monitor, Clock, Tag, Briefcase, Wrench, CheckSquare, Copy, Check, Users, AlertOctagon, Zap, Barcode, Database } from 'lucide-react';
 
 interface NewTicketFormProps {
   onSubmit: (ticket: Ticket) => void;
   currentUser: UserProfile;
+  prefilledAsset?: Asset | null;
 }
 
 const SUBJECT_OPTIONS = [
@@ -23,7 +24,7 @@ const SUBJECT_OPTIONS = [
   "1207 - Duvida em configuração"
 ];
 
-export const NewTicketForm: React.FC<NewTicketFormProps> = ({ onSubmit, currentUser }) => {
+export const NewTicketForm: React.FC<NewTicketFormProps> = ({ onSubmit, currentUser, prefilledAsset }) => {
   const getCurrentDateTime = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -57,13 +58,37 @@ export const NewTicketForm: React.FC<NewTicketFormProps> = ({ onSubmit, currentU
     clientWitnessName: '',
     clientWitnessId: '',
     isEscalated: false,
-    isTigerTeam: false
+    isTigerTeam: false,
+    // Novos campos vinculados ao Ativo
+    termId: '',
+    filial: '',
+    codSite: '',
+    equipTipo2: '',
+    produto: ''
   });
   
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState<{ solution: string; priority: TicketPriority; escalated: boolean } | null>(null);
   const [summaryText, setSummaryText] = useState('');
   const [copied, setCopied] = useState(false);
+
+  // Efeito para preencher o formulário se um ativo for selecionado na base
+  useEffect(() => {
+    if (prefilledAsset) {
+      setFormData(prev => ({
+        ...prev,
+        hostname: prefilledAsset.hostname,
+        serialNumber: prefilledAsset.serialNumber,
+        locationName: prefilledAsset.locationName,
+        termId: prefilledAsset.termId,
+        filial: prefilledAsset.filial,
+        codSite: prefilledAsset.codSite,
+        equipTipo2: prefilledAsset.equipTipo2,
+        produto: prefilledAsset.produto,
+        supportStartTime: getCurrentDateTime()
+      }));
+    }
+  }, [prefilledAsset]);
 
   useEffect(() => {
     setFormData(prev => ({ ...prev, supportStartTime: getCurrentDateTime() }));
@@ -79,6 +104,7 @@ export const NewTicketForm: React.FC<NewTicketFormProps> = ({ onSubmit, currentU
 ANALISTA: ${formData.analystName}
 CLIENTE/LOCAL: ${formData.locationName} | CONTATO: ${formData.customerName}
 HOSTNAME: ${formData.hostname} | N. SÉRIE: ${formData.serialNumber || 'N/A'}
+TERM ID: ${formData.termId || 'N/A'}
 TASK: ${formData.taskId} | INC / RITM: ${formData.serviceRequest}
 ASSUNTO: ${formData.subject}
 TIGER TEAM: ${formData.isTigerTeam ? 'SIM (#198)' : 'NÃO'}
@@ -90,7 +116,7 @@ Cliente: ${formData.clientWitnessName || 'N/A'} (Matrícula: ${formData.clientWi
 DESCRIÇÃO DO PROBLEMA:
 ${formData.description || 'N/A'}
 
-AÇÃO DO ANALISTA:
+PLANO DE AÇÃO / AÇÃO DO ANALISTA:
 ${formData.analystAction || 'N/A'}
 
 VALIDADORES:
@@ -128,17 +154,16 @@ Final:  ${end}
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Regra de Negócio: Tiger Team é uma forma de escalonamento, mas com sua própria aba
     const isActuallyEscalated = formData.isEscalated || (aiSuggestion ? aiSuggestion.escalated : false);
     
     let initialStatus = TicketStatus.OPEN;
     let priorityFinal = aiSuggestion ? aiSuggestion.priority : TicketPriority.MEDIUM;
 
     if (formData.isTigerTeam) {
-        initialStatus = TicketStatus.IN_PROGRESS; // Tiger Team entra direto em atendimento
+        initialStatus = TicketStatus.IN_PROGRESS;
         priorityFinal = TicketPriority.CRITICAL;
     } else if (isActuallyEscalated) {
-        initialStatus = TicketStatus.OPEN; // Escalonado N2 entra como Aberto para ser validado
+        initialStatus = TicketStatus.OPEN;
         priorityFinal = TicketPriority.CRITICAL;
     } else if (formData.supportEndTime) {
         initialStatus = TicketStatus.RESOLVED;
@@ -150,39 +175,13 @@ Final:  ${end}
       ...formData,
       status: initialStatus,
       priority: priorityFinal,
-      isEscalated: !!(isActuallyEscalated || formData.isTigerTeam), // No banco, ambos são true para visualização de N2/Admin
+      isEscalated: !!(isActuallyEscalated || formData.isTigerTeam),
       isTigerTeam: !!formData.isTigerTeam,
       aiSuggestedSolution: aiSuggestion?.solution,
       createdAt: new Date(),
     };
     
     onSubmit(newTicket);
-    setFormData({
-      customerName: '',
-      analystName: currentUser.name,
-      locationName: '',
-      supportStartTime: getCurrentDateTime(),
-      supportEndTime: '', 
-      taskId: '',
-      serviceRequest: '',
-      hostname: '',
-      serialNumber: '',
-      subject: SUBJECT_OPTIONS[0],
-      description: '',
-      analystAction: '',
-      isDueCall: false,
-      usedACFS: false,
-      hasInkStaining: false,
-      partReplaced: false,
-      partDescription: '',
-      tagVLDD: false,
-      tagNLVDD: false,
-      clientWitnessName: '',
-      clientWitnessId: '',
-      isEscalated: false,
-      isTigerTeam: false
-    });
-    setAiSuggestion(null);
   };
 
   const handleChange = (field: string, value: any) => {
@@ -202,28 +201,37 @@ Final:  ${end}
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-in slide-in-from-bottom-4 duration-500 pb-10">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-        <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 px-6 py-4">
-          <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <Briefcase className="w-5 h-5" />
-            Novo Atendimento Técnico
-          </h2>
-          <p className="text-indigo-100 text-sm mt-1">Preencha os detalhes técnicos do suporte realizado.</p>
+        <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 px-6 py-4 flex justify-between items-center">
+          <div>
+            <h2 className="text-xl font-bold text-white flex items-center gap-2">
+              <Briefcase className="w-5 h-5" />
+              {prefilledAsset ? 'Novo Atendimento (Ativo Vinculado)' : 'Novo Atendimento Técnico'}
+            </h2>
+            <p className="text-indigo-100 text-sm mt-1">Preencha os detalhes técnicos do suporte realizado.</p>
+          </div>
+          {prefilledAsset && (
+            <div className="bg-white/10 px-3 py-1.5 rounded-lg border border-white/20 text-white text-xs font-bold flex items-center gap-2">
+              <Database className="w-3.5 h-3.5" />
+              DADOS DA BASE CARREGADOS
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-8">
+          {/* Dados do Analista e Horários */}
           <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
             <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <User className="w-4 h-4" /> Dados do Analista
+              <User className="w-4 h-4" /> Dados do Atendimento
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Analista</label>
+                <label className="text-sm font-medium text-gray-700">Analista Responsável</label>
                 <input
                   required
                   readOnly
                   type="text"
                   value={formData.analystName}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed outline-none"
+                  className="w-full px-4 py-2 rounded-lg border border-gray-200 bg-gray-100 text-gray-500 cursor-not-allowed outline-none font-semibold"
                 />
               </div>
               <div className="space-y-2">
@@ -254,32 +262,23 @@ Final:  ${end}
             </div>
           </div>
 
+          {/* Dados do Equipamento (Travados se vierem da base) */}
           <div>
             <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <MapPin className="w-4 h-4" /> Local e Equipamento
+              <Monitor className="w-4 h-4" /> Informações do Ativo
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="space-y-2 lg:col-span-1">
-                <label className="text-sm font-medium text-gray-700">Nome do Local / Cliente</label>
-                <input
-                  required
-                  type="text"
-                  value={formData.locationName}
-                  onChange={(e) => handleChange('locationName', e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none"
-                  placeholder="Ex: Loja Centro"
-                />
-              </div>
               <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700">Hostname</label>
                 <div className="relative">
                   <Monitor className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
                   <input
                     required
+                    readOnly={!!prefilledAsset}
                     type="text"
                     value={formData.hostname}
                     onChange={(e) => handleChange('hostname', e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className={`w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 outline-none ${prefilledAsset ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'focus:ring-2 focus:ring-indigo-500'}`}
                     placeholder="WK-001"
                   />
                 </div>
@@ -289,60 +288,61 @@ Final:  ${end}
                 <div className="relative">
                   <Barcode className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
                   <input
+                    readOnly={!!prefilledAsset}
                     type="text"
                     value={formData.serialNumber}
                     onChange={(e) => handleChange('serialNumber', e.target.value)}
-                    className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    className={`w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 outline-none ${prefilledAsset ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'focus:ring-2 focus:ring-indigo-500'}`}
                     placeholder="S/N: 12345"
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Cliente (Solicitante)</label>
+                <label className="text-sm font-medium text-gray-700">Term ID (SGPI)</label>
+                <input
+                  readOnly={!!prefilledAsset}
+                  type="text"
+                  value={formData.termId}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed outline-none font-mono"
+                />
+              </div>
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700">Filial / Cod. Site</label>
+                <input
+                  readOnly={!!prefilledAsset}
+                  type="text"
+                  value={formData.filial ? `${formData.filial} (${formData.codSite})` : ''}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed outline-none"
+                />
+              </div>
+              <div className="space-y-2 lg:col-span-2">
+                <label className="text-sm font-medium text-gray-700">Localização / Cliente</label>
                 <input
                   required
+                  readOnly={!!prefilledAsset}
                   type="text"
-                  value={formData.customerName}
-                  onChange={(e) => handleChange('customerName', e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none"
-                  placeholder="Quem ligou"
+                  value={formData.locationName}
+                  onChange={(e) => handleChange('locationName', e.target.value)}
+                  className={`w-full px-4 py-2 rounded-lg border border-gray-200 outline-none ${prefilledAsset ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : 'focus:ring-2 focus:ring-indigo-500'}`}
+                />
+              </div>
+              <div className="space-y-2 lg:col-span-2">
+                <label className="text-sm font-medium text-gray-700">Produto / Modelo</label>
+                <input
+                  readOnly={!!prefilledAsset}
+                  type="text"
+                  value={formData.produto}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-200 bg-gray-50 text-gray-500 cursor-not-allowed outline-none"
                 />
               </div>
             </div>
           </div>
 
-          <div className="bg-orange-50 p-4 rounded-xl border border-orange-100">
-            <h3 className="text-sm font-semibold text-orange-700 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <Users className="w-4 h-4" /> Acompanhamento Local
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Nome do Cliente (Local)</label>
-                <input
-                  type="text"
-                  value={formData.clientWitnessName}
-                  onChange={(e) => handleChange('clientWitnessName', e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500 outline-none"
-                  placeholder="Quem acompanhou a atividade"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700">Matrícula</label>
-                <input
-                  type="text"
-                  value={formData.clientWitnessId}
-                  onChange={(e) => handleChange('clientWitnessId', e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-orange-500 outline-none"
-                  placeholder="ID / Matrícula"
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* Chamado do Cliente e Níveis Críticos */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
              <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                  <Hash className="w-4 h-4 text-gray-400" /> Task / Chamado
+                  <Hash className="w-4 h-4 text-gray-400" /> Número da Task / Chamado Interno
                 </label>
                 <input
                   required
@@ -355,7 +355,7 @@ Final:  ${end}
              </div>
              <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-gray-400" /> INC / RITM (Chamado do Cliente)
+                  <Tag className="w-4 h-4 text-gray-400" /> INC / RITM (Chamado Externo)
                 </label>
                 <input
                   type="text"
@@ -367,164 +367,55 @@ Final:  ${end}
              </div>
              <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                  <Tag className="w-4 h-4 text-gray-400" /> Subject (Assunto)
-                </label>
-                <select
-                  value={formData.subject}
-                  onChange={(e) => handleChange('subject', e.target.value)}
-                  className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                >
-                  {SUBJECT_OPTIONS.map(opt => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-             </div>
-             <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
                   <Zap className="w-4 h-4 text-amber-500" /> Nível Crítico
                 </label>
-                <div className="flex flex-col gap-2">
+                <div className="flex gap-2">
                     <button 
                         type="button"
                         onClick={() => handleChange('isTigerTeam', !formData.isTigerTeam)}
-                        className={`w-full px-3 py-2 rounded-lg border flex items-center justify-between transition-colors ${formData.isTigerTeam ? 'bg-amber-50 border-amber-300 ring-1 ring-amber-200' : 'bg-white border-gray-200 hover:border-gray-300'}`}
+                        className={`flex-1 px-3 py-2 rounded-lg border flex items-center justify-between transition-colors ${formData.isTigerTeam ? 'bg-amber-50 border-amber-300 ring-1 ring-amber-200' : 'bg-white border-gray-200 hover:border-gray-300'}`}
                     >
                         <span className={`text-xs font-bold flex items-center gap-1 ${formData.isTigerTeam ? 'text-amber-700' : 'text-gray-400'}`}>
-                            <Zap className="w-3 h-3" /> #198 TIGER TEAM
+                            TIGER TEAM
                         </span>
-                        <div className={`w-8 h-5 rounded-full p-0.5 transition-colors ${formData.isTigerTeam ? 'bg-amber-500' : 'bg-gray-200'}`}>
-                            <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${formData.isTigerTeam ? 'translate-x-3' : 'translate-x-0'}`} />
+                        <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${formData.isTigerTeam ? 'bg-amber-500' : 'bg-gray-200'}`}>
+                            <div className={`bg-white w-3 h-3 rounded-full shadow-sm transform transition-transform ${formData.isTigerTeam ? 'translate-x-4' : 'translate-x-0'}`} />
                         </div>
                     </button>
                     <button 
                         type="button"
                         onClick={() => handleChange('isEscalated', !formData.isEscalated)}
-                        className={`w-full px-3 py-2 rounded-lg border flex items-center justify-between transition-colors ${formData.isEscalated ? 'bg-red-50 border-red-300' : 'bg-white border-gray-200 hover:border-gray-300'}`}
+                        className={`flex-1 px-3 py-2 rounded-lg border flex items-center justify-between transition-colors ${formData.isEscalated ? 'bg-red-50 border-red-300' : 'bg-white border-gray-200 hover:border-gray-300'}`}
                     >
                         <span className={`text-xs font-bold flex items-center gap-1 ${formData.isEscalated ? 'text-red-700' : 'text-gray-400'}`}>
-                            <AlertOctagon className="w-3 h-3" /> ESCALONAR
+                            ESCALADO
                         </span>
-                        <div className={`w-8 h-5 rounded-full p-0.5 transition-colors ${formData.isEscalated ? 'bg-red-500' : 'bg-gray-200'}`}>
-                            <div className={`bg-white w-4 h-4 rounded-full shadow-sm transform transition-transform ${formData.isEscalated ? 'translate-x-3' : 'translate-x-0'}`} />
+                        <div className={`w-8 h-4 rounded-full p-0.5 transition-colors ${formData.isEscalated ? 'bg-red-500' : 'bg-gray-200'}`}>
+                            <div className={`bg-white w-3 h-3 rounded-full shadow-sm transform transition-transform ${formData.isEscalated ? 'translate-x-4' : 'translate-x-0'}`} />
                         </div>
                     </button>
                 </div>
              </div>
           </div>
 
-          <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
-            <h3 className="text-sm font-semibold text-indigo-700 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <CheckSquare className="w-4 h-4" /> Validadores Técnicos
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
-              <div className="flex flex-col gap-3">
-                <label className="flex items-center gap-2 cursor-pointer group">
-                  <input 
-                    type="checkbox" 
-                    checked={formData.isDueCall}
-                    onChange={(e) => handleChange('isDueCall', e.target.checked)}
-                    className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" 
-                  />
-                  <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-700 transition-colors">Ligação Devida</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer group">
-                  <input 
-                    type="checkbox" 
-                    checked={formData.usedACFS}
-                    onChange={(e) => handleChange('usedACFS', e.target.checked)}
-                    className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" 
-                  />
-                  <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-700 transition-colors">Utilizou ACFS</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer group">
-                  <input 
-                    type="checkbox" 
-                    checked={formData.hasInkStaining}
-                    onChange={(e) => handleChange('hasInkStaining', e.target.checked)}
-                    className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" 
-                  />
-                  <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-700 transition-colors">Ocorreu Entintamento</span>
-                </label>
-              </div>
-               <div className="flex flex-col gap-3">
-                <label className="flex items-center gap-2 cursor-pointer group">
-                  <input 
-                    type="checkbox" 
-                    checked={formData.tagVLDD}
-                    onChange={(e) => handleChange('tagVLDD', e.target.checked)}
-                    className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer" 
-                  />
-                  <span className="text-sm font-bold text-gray-700 group-hover:text-purple-700 transition-colors">#VLDD#</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer group">
-                  <input 
-                    type="checkbox" 
-                    checked={formData.tagNLVDD}
-                    onChange={(e) => handleChange('tagNLVDD', e.target.checked)}
-                    className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer" 
-                  />
-                  <span className="text-sm font-bold text-gray-700 group-hover:text-purple-700 transition-colors">#NLVDD#</span>
-                </label>
-              </div>
-              <div className="lg:col-span-2 bg-white p-4 rounded-lg border border-indigo-200 shadow-sm">
-                 <label className="text-sm font-semibold text-gray-700 flex items-center gap-2 mb-2">
-                    <Wrench className="w-4 h-4 text-gray-400" />
-                    Foi trocado Peça?
-                 </label>
-                 <div className="flex items-center gap-4 mb-3">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input 
-                        type="radio" 
-                        name="partReplaced"
-                        checked={formData.partReplaced === true}
-                        onChange={() => handleChange('partReplaced', true)}
-                        className="text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span className="text-sm text-gray-700">Sim</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input 
-                        type="radio" 
-                        name="partReplaced"
-                        checked={formData.partReplaced === false}
-                        onChange={() => handleChange('partReplaced', false)}
-                        className="text-indigo-600 focus:ring-indigo-500"
-                      />
-                      <span className="text-sm text-gray-700">Não</span>
-                    </label>
-                 </div>
-                 {formData.partReplaced && (
-                    <div className="animate-in fade-in slide-in-from-top-2 duration-200">
-                      <input 
-                        type="text" 
-                        value={formData.partDescription}
-                        onChange={(e) => handleChange('partDescription', e.target.value)}
-                        placeholder="Qual peça foi trocada? (Ex: Fonte ATX, Cabo Flat)"
-                        className="w-full px-3 py-2 text-sm rounded-md border border-gray-300 focus:ring-2 focus:ring-indigo-500 outline-none"
-                      />
-                    </div>
-                 )}
-              </div>
-            </div>
-          </div>
-
           <hr className="border-gray-100" />
 
+          {/* Descrição e Plano de Ação */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="space-y-2">
               <div className="flex justify-between items-center">
-                <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
                   <FileText className="w-4 h-4 text-gray-400" />
-                  Descrição do Problema (Para IA)
+                  Descrição do Defeito (Relatado pelo Técnico)
                 </label>
                 <button
                   type="button"
                   onClick={handleAnalyze}
                   disabled={!formData.description || isAnalyzing}
-                  className="text-xs flex items-center gap-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-full font-medium transition-colors disabled:opacity-50"
+                  className="text-xs flex items-center gap-1.5 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 px-3 py-1.5 rounded-full font-bold transition-colors disabled:opacity-50"
                 >
                   {isAnalyzing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                  {isAnalyzing ? 'Analisando...' : 'Classificar com IA'}
+                  Analisar com IA
                 </button>
               </div>
               <textarea
@@ -532,79 +423,81 @@ Final:  ${end}
                 rows={6}
                 value={formData.description}
                 onChange={(e) => handleChange('description', e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
-                placeholder="Descreva o erro, sintomas e o que o cliente relatou..."
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none resize-none"
+                placeholder="Descreva o defeito encontrado e sintomas relatados pelo técnico em campo..."
               />
             </div>
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
-                <Clock className="w-4 h-4 text-gray-400" />
-                Ação Analista (Resolução)
+              <label className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <Clock className="w-4 h-4 text-indigo-400" />
+                Plano de Ação Sugerido / Ações Tomadas
               </label>
               <textarea
                 required
                 rows={6}
                 value={formData.analystAction}
                 onChange={(e) => handleChange('analystAction', e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none resize-none bg-slate-50"
-                placeholder="Descreva os passos técnicos realizados, testes e solução aplicada..."
+                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none resize-none bg-slate-50 font-medium"
+                placeholder="Descreva os passos sugeridos para a resolução ou o que já foi executado pelo técnico..."
               />
             </div>
           </div>
 
-          {aiSuggestion && (
-            <div className={`rounded-xl p-4 border ${aiSuggestion.escalated ? 'bg-red-50 border-red-200' : 'bg-emerald-50 border-emerald-200'} animate-in fade-in zoom-in-95 duration-300`}>
-              <div className="flex items-start gap-3">
-                <div className={`p-2 rounded-lg ${aiSuggestion.escalated ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                  <Sparkles className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className={`font-semibold ${aiSuggestion.escalated ? 'text-red-900' : 'text-emerald-900'}`}>
-                    Análise da IA
-                  </h3>
-                  <div className="mt-2 space-y-2 text-sm">
-                    <p><span className="font-medium">Sugestão Técnica:</span> {aiSuggestion.solution}</p>
-                    <div className="flex gap-3 mt-2">
-                       <span className={`px-2 py-0.5 rounded text-xs font-bold border ${aiSuggestion.escalated ? 'bg-red-100 border-red-200 text-red-700' : 'bg-emerald-100 border-emerald-200 text-emerald-700'}`}>
-                         Prioridade Recomendada: {aiSuggestion.priority}
-                       </span>
-                       {aiSuggestion.escalated && (
-                         <span className="px-2 py-0.5 rounded text-xs font-bold bg-red-600 text-white animate-pulse">
-                           ESCALONAMENTO RECOMENDADO
-                         </span>
-                       )}
-                    </div>
-                  </div>
-                </div>
+          {/* Validadores Extras */}
+          <div className="bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+            <h3 className="text-sm font-semibold text-indigo-700 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <CheckSquare className="w-4 h-4" /> Validadores Técnicos
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
+              <div className="flex flex-col gap-3">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input type="checkbox" checked={formData.isDueCall} onChange={(e) => handleChange('isDueCall', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
+                  <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-700">Ligação Devida</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input type="checkbox" checked={formData.usedACFS} onChange={(e) => handleChange('usedACFS', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer" />
+                  <span className="text-sm font-medium text-gray-700 group-hover:text-indigo-700">Utilizou ACFS</span>
+                </label>
+              </div>
+              <div className="flex flex-col gap-3">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input type="checkbox" checked={formData.tagVLDD} onChange={(e) => handleChange('tagVLDD', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer" />
+                  <span className="text-sm font-bold text-gray-700">#VLDD#</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input type="checkbox" checked={formData.tagNLVDD} onChange={(e) => handleChange('tagNLVDD', e.target.checked)} className="w-5 h-5 rounded border-gray-300 text-purple-600 focus:ring-purple-500 cursor-pointer" />
+                  <span className="text-sm font-bold text-gray-700">#NLVDD#</span>
+                </label>
+              </div>
+              <div className="lg:col-span-2 bg-white p-4 rounded-lg border border-indigo-200">
+                 <label className="text-sm font-semibold text-gray-700 mb-2 block">Peças Trocadas?</label>
+                 <div className="flex items-center gap-4 mb-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" checked={formData.partReplaced} onChange={() => handleChange('partReplaced', true)} /> <span className="text-sm">Sim</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input type="radio" checked={!formData.partReplaced} onChange={() => handleChange('partReplaced', false)} /> <span className="text-sm">Não</span>
+                    </label>
+                 </div>
+                 {formData.partReplaced && (
+                    <input type="text" value={formData.partDescription} onChange={(e) => handleChange('partDescription', e.target.value)} placeholder="Descrição da peça" className="w-full px-3 py-2 text-sm rounded border border-gray-300 outline-none" />
+                 )}
               </div>
             </div>
-          )}
+          </div>
 
           <div className="bg-gray-800 rounded-xl p-4 text-gray-200">
              <div className="flex justify-between items-center mb-3">
-               <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400">Resumo para Cópia</h3>
-               <button 
-                 type="button"
-                 onClick={handleCopySummary}
-                 className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${copied ? 'bg-green-500 text-white' : 'bg-gray-700 hover:bg-gray-600 text-white'}`}
-               >
-                 {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                 {copied ? 'Copiado!' : 'Copiar Resumo'}
+               <h3 className="text-sm font-bold uppercase tracking-wider text-gray-400">Resumo do Chamado</h3>
+               <button type="button" onClick={handleCopySummary} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${copied ? 'bg-green-500 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}>
+                 {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />} {copied ? 'Copiado!' : 'Copiar'}
                </button>
              </div>
-             <textarea 
-               readOnly
-               rows={8}
-               value={summaryText}
-               className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-xs font-mono text-gray-300 focus:outline-none focus:border-gray-600 resize-none"
-             />
+             <textarea readOnly rows={6} value={summaryText} className="w-full bg-gray-900 border border-gray-700 rounded-lg p-3 text-[10px] font-mono text-gray-400 resize-none outline-none" />
           </div>
 
-          <div className="flex justify-end">
-            <button
-              type="submit"
-              className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-8 py-3 rounded-lg font-medium transition-all transform active:scale-95 shadow-lg shadow-indigo-200"
-            >
+          <div className="flex justify-end pt-4">
+            <button type="submit" className="bg-indigo-600 hover:bg-indigo-700 text-white px-10 py-3 rounded-xl font-bold shadow-xl shadow-indigo-100 flex items-center gap-2 transition-all transform active:scale-95">
               <Save className="w-5 h-5" />
               Salvar Atendimento
             </button>

@@ -10,7 +10,7 @@ import { AssetManager } from './components/AssetManager';
 import { LoginPage } from './components/LoginPage';
 import { Settings } from './components/Settings';
 import { ChangePassword } from './components/ChangePassword';
-import { Ticket, ViewState, UserProfile, TicketStatus } from './types';
+import { Ticket, ViewState, UserProfile, TicketStatus, Asset } from './types';
 import { Menu, X, Loader2, Cloud, AlertTriangle, RefreshCw, Database } from 'lucide-react';
 import { DataManager } from './services/dataManager';
 import { isSupabaseConfigured } from './lib/supabaseClient';
@@ -25,6 +25,7 @@ const App: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
   const [globalError, setGlobalError] = useState<string | null>(null);
+  const [prefilledAsset, setPrefilledAsset] = useState<Asset | null>(null);
 
   useEffect(() => {
     const checkSession = async () => {
@@ -83,13 +84,19 @@ const App: React.FC = () => {
     setTickets([]);
   };
 
+  const handleOpenTicketFromAsset = (asset: Asset) => {
+    setPrefilledAsset(asset);
+    setCurrentView('new-ticket');
+    setIsMobileMenuOpen(false);
+  };
+
   const handleCreateTicket = async (ticket: Ticket) => {
     if (!currentUser) return;
     try {
         await DataManager.addTicket(ticket);
         showNotification("Chamado registrado com sucesso!");
+        setPrefilledAsset(null); // Limpa o asset pré-preenchido
         setCurrentView('dashboard');
-        // Tenta atualizar a lista, mas não trava o usuário se der erro no refresh
         try {
             await fetchData(currentUser);
         } catch (fetchErr) {
@@ -97,7 +104,7 @@ const App: React.FC = () => {
         }
     } catch (error: any) {
         console.error("Erro ao criar ticket:", error);
-        alert(`Erro Crítico ao Salvar: ${error.message}\n\nVerifique se você executou o SQL de reparo no Supabase.`);
+        alert(`Erro Crítico ao Salvar: ${error.message}`);
         showNotification(`Erro ao salvar: ${error.message}`);
     }
   };
@@ -188,7 +195,10 @@ const App: React.FC = () => {
     <div className="flex h-screen bg-slate-50 overflow-hidden">
       <Sidebar 
         currentView={currentView} 
-        setView={setCurrentView} 
+        setView={(view) => {
+            if (view !== 'new-ticket') setPrefilledAsset(null);
+            setCurrentView(view);
+        }} 
         isMobileOpen={isMobileMenuOpen}
         setIsMobileOpen={setIsMobileMenuOpen}
         currentUser={currentUser}
@@ -288,10 +298,10 @@ const App: React.FC = () => {
             )}
 
             {currentView === 'dashboard' && tickets.length > 0 && <Dashboard tickets={tickets} />}
-            {currentView === 'new-ticket' && <NewTicketForm onSubmit={handleCreateTicket} currentUser={currentUser} />}
+            {currentView === 'new-ticket' && <NewTicketForm onSubmit={handleCreateTicket} currentUser={currentUser} prefilledAsset={prefilledAsset} />}
             {currentView === 'tiger-team' && <TigerTeam tickets={tickets} onResolve={handleResolveTicket} />}
             {currentView === 'escalations' && <EscalationList tickets={tickets} onResolve={handleResolveTicket} />}
-            {currentView === 'assets' && <AssetManager />}
+            {currentView === 'assets' && <AssetManager onOpenTicket={handleOpenTicketFromAsset} />}
             {currentView === 'history' && (
                 <HistoryList 
                     tickets={tickets} 
