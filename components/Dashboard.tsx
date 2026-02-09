@@ -2,7 +2,7 @@
 import React, { useMemo } from 'react';
 import { Ticket, TicketPriority, TicketStatus } from '../types';
 import { StatsCard } from './StatsCard';
-import { BarChart3, CheckCircle2, Clock, AlertOctagon, Zap, Monitor, AlertTriangle, PieChart as PieChartIcon, TrendingUp } from 'lucide-react';
+import { BarChart3, CheckCircle2, Clock, AlertOctagon, Zap, Monitor, AlertTriangle, PieChart as PieChartIcon, TrendingUp, MapPin } from 'lucide-react';
 import { 
   BarChart, 
   Bar, 
@@ -14,8 +14,7 @@ import {
   Cell,
   PieChart,
   Pie,
-  Legend,
-  Sector
+  Legend
 } from 'recharts';
 
 interface DashboardProps {
@@ -43,17 +42,20 @@ export const Dashboard: React.FC<DashboardProps> = ({ tickets }) => {
   const resolvedTickets = tickets.filter(t => t.status === TicketStatus.RESOLVED || t.status === TicketStatus.CLOSED).length;
   const openTickets = tickets.filter(t => t.status === TicketStatus.OPEN).length;
 
-  // Estatísticas de Equipamentos (Hostnames) mais chamados
+  // Estatísticas de Equipamentos (Hostnames) mais chamados incluindo localização
   const equipmentStats = useMemo(() => {
-    const counts: Record<string, number> = {};
+    const counts: Record<string, { count: number, locationName: string }> = {};
     tickets.forEach(t => {
       if (t.hostname) {
-        counts[t.hostname] = (counts[t.hostname] || 0) + 1;
+        if (!counts[t.hostname]) {
+          counts[t.hostname] = { count: 0, locationName: t.locationName || 'N/A' };
+        }
+        counts[t.hostname].count += 1;
       }
     });
 
     return Object.entries(counts)
-      .map(([name, count]) => ({ name, count }))
+      .map(([name, data]) => ({ name, count: data.count, locationName: data.locationName }))
       .sort((a, b) => b.count - a.count)
       .slice(0, 8); // Top 8 para o gráfico
   }, [tickets]);
@@ -186,18 +188,21 @@ export const Dashboard: React.FC<DashboardProps> = ({ tickets }) => {
           ) : (
             topRankingAssets.map((asset, idx) => (
               <div key={asset.name} className="bg-white p-4 rounded-2xl border border-gray-100 shadow-sm flex items-center justify-between transition-all hover:shadow-md group">
-                <div className="flex items-center gap-3">
-                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black ${
+                <div className="flex items-center gap-3 overflow-hidden">
+                  <div className={`w-10 h-10 shrink-0 rounded-xl flex items-center justify-center font-black ${
                     idx === 0 ? 'bg-red-50 text-red-600' : idx === 1 ? 'bg-amber-50 text-amber-600' : 'bg-blue-50 text-blue-600'
                   }`}>
                     {idx + 1}º
                   </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-gray-900 group-hover:text-indigo-600 transition-colors">{asset.name}</h4>
-                    <p className="text-[10px] text-gray-500 font-medium">Índice de Incidência</p>
+                  <div className="overflow-hidden">
+                    <h4 className="text-sm font-bold text-gray-900 group-hover:text-indigo-600 transition-colors truncate">{asset.name}</h4>
+                    <p className="text-[10px] text-gray-500 font-medium flex items-center gap-1 truncate">
+                        <MapPin className="w-2.5 h-2.5 shrink-0" />
+                        {asset.locationName}
+                    </p>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right shrink-0 ml-2">
                   <span className="text-lg font-black text-gray-900">{asset.count}</span>
                   <p className="text-[10px] text-gray-400 font-bold uppercase tracking-tighter">Chamados</p>
                 </div>
