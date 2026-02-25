@@ -166,22 +166,46 @@ export const DataManager = {
   // NAT DATA
   getNatEntries: async (): Promise<any[]> => {
     if (!isSupabaseConfigured) return [];
-    const { data, error } = await supabase
-        .from('nat_entries')
-        .select('*')
-        .order('hostname', { ascending: true });
-    if (error) {
-        console.error("Erro ao buscar NAT:", error);
-        return [];
+    
+    let allEntries: any[] = [];
+    let from = 0;
+    const step = 1000;
+    let hasMore = true;
+
+    try {
+      while (hasMore) {
+        const { data, error } = await supabase
+            .from('nat_entries')
+            .select('*')
+            .range(from, from + step - 1)
+            .order('hostname', { ascending: true });
+            
+        if (error) throw error;
+        
+        if (data && data.length > 0) {
+          allEntries = [...allEntries, ...data];
+          if (data.length < step) {
+            hasMore = false;
+          } else {
+            from += step;
+          }
+        } else {
+          hasMore = false;
+        }
+      }
+      
+      return allEntries.map(n => ({
+          id: n.id,
+          hostname: n.hostname,
+          modelo: n.modelo,
+          serie: n.serie,
+          filial: n.filial,
+          createdAt: n.created_at ? new Date(n.created_at) : undefined
+      }));
+    } catch (err) {
+      console.error("Erro ao buscar NAT:", err);
+      return [];
     }
-    return (data || []).map(n => ({
-        id: n.id,
-        hostname: n.hostname,
-        modelo: n.modelo,
-        serie: n.serie,
-        filial: n.filial,
-        createdAt: n.created_at ? new Date(n.created_at) : undefined
-    }));
   },
 
   upsertNatEntries: async (entries: any[]) => {
