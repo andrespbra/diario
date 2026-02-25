@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Search, Database, FileText, CheckCircle2, AlertCircle, Loader2, Download, Network, X, Filter } from 'lucide-react';
+import { Upload, Search, Database, FileText, CheckCircle2, AlertCircle, Loader2, Download, Network, X, Filter, Trash2 } from 'lucide-react';
 import Papa from 'papaparse';
 import { DataManager } from '../services/dataManager';
 import { NatEntry } from '../types';
@@ -10,6 +10,7 @@ export const NatManager: React.FC = () => {
   const [entries, setEntries] = useState<NatEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [status, setStatus] = useState<{ type: 'success' | 'error', message: string } | null>(null);
   const [generatedIcon, setGeneratedIcon] = useState<string | null>(null);
@@ -41,6 +42,21 @@ export const NatManager: React.FC = () => {
     }
   };
 
+  const handleClearBase = async () => {
+    if (!window.confirm("Tem certeza que deseja excluir TODOS os registros da base NAT?")) return;
+    
+    setClearing(true);
+    try {
+      await DataManager.clearNatEntries();
+      setEntries([]);
+      setStatus({ type: 'success', message: "Base NAT limpa com sucesso!" });
+    } catch (error: any) {
+      setStatus({ type: 'error', message: "Erro ao limpar base: " + error.message });
+    } finally {
+      setClearing(false);
+    }
+  };
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
@@ -57,11 +73,19 @@ export const NatManager: React.FC = () => {
           const rawData = results.data as any[];
           
           const mappedData: NatEntry[] = rawData.map(row => {
+            // Função auxiliar para buscar valor em múltiplas chaves possíveis
+            const getVal = (possibleKeys: string[]) => {
+              for (const key of possibleKeys) {
+                if (row[key] !== undefined && row[key] !== null) return row[key].toString().trim();
+              }
+              return '';
+            };
+
             return {
-              hostname: (row['HOSTNAME'] || row['HOST'] || '').toString().trim(),
-              modelo: (row['MODELO'] || row['MODEL'] || '').toString().trim(),
-              serie: (row['SERIE'] || row['SÉRIE'] || row['SERIAL'] || '').toString().trim(),
-              filial: (row['FILIAL'] || row['BRANCH'] || '').toString().trim()
+              hostname: getVal(['HOSTNAME', 'HOST', 'NOME', 'EQUIPAMENTO']),
+              modelo: getVal(['MODELO', 'MODEL', 'TIPO', 'DESCRIÇÃO']),
+              serie: getVal(['SERIE', 'SÉRIE', 'SERIAL', 'N/S', 'NS']),
+              filial: getVal(['FILIAL', 'BRANCH', 'AGÊNCIA', 'AGENCIA', 'UNIDADE', 'LOCALIDADE', 'SITE'])
             };
           }).filter(item => item.hostname);
 
@@ -135,6 +159,15 @@ export const NatManager: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleClearBase}
+            disabled={clearing || entries.length === 0}
+            className="flex items-center gap-2 px-4 py-2 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors disabled:opacity-50"
+            title="Limpar toda a base NAT"
+          >
+            {clearing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+            <span className="hidden sm:inline">Limpar Base</span>
+          </button>
           <input
             type="file"
             ref={fileInputRef}
@@ -249,9 +282,13 @@ export const NatManager: React.FC = () => {
                       {highlightText(entry.serie, searchTerm)}
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">
-                      <span className="px-2 py-1 bg-slate-100 rounded text-xs font-medium text-slate-500 uppercase">
-                        {highlightText(entry.filial, searchTerm)}
-                      </span>
+                      {entry.filial ? (
+                        <span className="px-2 py-1 bg-slate-100 rounded text-xs font-medium text-slate-500 uppercase">
+                          {highlightText(entry.filial, searchTerm)}
+                        </span>
+                      ) : (
+                        <span className="text-slate-300 italic text-xs">N/A</span>
+                      )}
                     </td>
                   </tr>
                 ))

@@ -212,6 +212,12 @@ export const DataManager = {
     return totalInserted;
   },
 
+  clearNatEntries: async () => {
+    if (!isSupabaseConfigured) return;
+    const { error } = await supabase.from('nat_entries').delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    if (error) throw error;
+  },
+
   // AUTENTICAÇÃO
   authenticate: async (username: string, password: string): Promise<UserProfile> => {
     if (!isSupabaseConfigured) {
