@@ -163,6 +163,55 @@ export const DataManager = {
     }));
   },
 
+  // NAT DATA
+  getNatEntries: async (): Promise<any[]> => {
+    if (!isSupabaseConfigured) return [];
+    const { data, error } = await supabase
+        .from('nat_entries')
+        .select('*')
+        .order('hostname', { ascending: true });
+    if (error) {
+        console.error("Erro ao buscar NAT:", error);
+        return [];
+    }
+    return (data || []).map(n => ({
+        id: n.id,
+        hostname: n.hostname,
+        modelo: n.modelo,
+        serie: n.serie,
+        filial: n.filial,
+        createdAt: n.created_at ? new Date(n.created_at) : undefined
+    }));
+  },
+
+  upsertNatEntries: async (entries: any[]) => {
+    if (!isSupabaseConfigured) return 0;
+    const batchSize = 100;
+    let totalInserted = 0;
+
+    for (let i = 0; i < entries.length; i += batchSize) {
+        const chunk = entries.slice(i, i + batchSize).map(n => ({
+            hostname: n.hostname,
+            modelo: n.modelo,
+            serie: n.serie,
+            filial: n.filial,
+            updated_at: new Date().toISOString()
+        }));
+
+        const { error } = await supabase.from('nat_entries').upsert(chunk, { 
+            onConflict: 'hostname',
+            ignoreDuplicates: false 
+        });
+        
+        if (error) {
+            console.error("Erro no lote de upsert NAT:", error);
+            throw error;
+        }
+        totalInserted += chunk.length;
+    }
+    return totalInserted;
+  },
+
   // AUTENTICAÇÃO
   authenticate: async (username: string, password: string): Promise<UserProfile> => {
     if (!isSupabaseConfigured) {

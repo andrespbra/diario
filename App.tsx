@@ -7,6 +7,7 @@ import { EscalationList } from './components/EscalationList';
 import { HistoryList } from './components/HistoryList';
 import { TigerTeam } from './components/TigerTeam';
 import { AssetManager } from './components/AssetManager';
+import { NatManager } from './components/NatManager';
 import { LoginPage } from './components/LoginPage';
 import { Settings } from './components/Settings';
 import { ChangePassword } from './components/ChangePassword';
@@ -302,6 +303,7 @@ const App: React.FC = () => {
             {currentView === 'tiger-team' && <TigerTeam tickets={tickets} onResolve={handleResolveTicket} />}
             {currentView === 'escalations' && <EscalationList tickets={tickets} onResolve={handleResolveTicket} />}
             {currentView === 'assets' && <AssetManager onOpenTicket={handleOpenTicketFromAsset} />}
+            {currentView === 'nat' && <NatManager />}
             {currentView === 'history' && (
                 <HistoryList 
                     tickets={tickets} 

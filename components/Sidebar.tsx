@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, PhoneCall, AlertTriangle, History, Headphones, Settings, Zap, Database } from 'lucide-react';
+import { LayoutDashboard, PhoneCall, AlertTriangle, History, Headphones, Settings, Zap, Database, Network } from 'lucide-react';
 import { ViewState, UserProfile } from '../types';
 
 interface SidebarProps {
@@ -18,6 +18,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isMobile
     { id: 'tiger-team', label: 'Tiger Team (#198)', icon: Zap, special: true },
     { id: 'escalations', label: 'Escalonados', icon: AlertTriangle },
     { id: 'assets', label: 'Base de Ativos', icon: Database },
+    { id: 'nat', label: 'NAT', icon: Network },
     { id: 'history', label: 'Histórico', icon: History },
   ];
 

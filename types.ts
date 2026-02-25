@@ -37,6 +37,15 @@ export interface Asset {
   updatedAt?: Date;
 }
 
+export interface NatEntry {
+  id?: string;
+  hostname: string;
+  modelo: string;
+  serie: string;
+  filial: string;
+  createdAt?: Date;
+}
+
 export interface Ticket {
   id: string;
   userId: string; // Foreign Key linking to UserProfile.id (or user_id)
@@ -102,4 +111,4 @@ export interface Ticket {
   produto?: string;
 }
 
-export type ViewState = 'dashboard' | 'new-ticket' | 'escalations' | 'history' | 'settings' | 'tiger-team' | 'assets';
+export type ViewState = 'dashboard' | 'new-ticket' | 'escalations' | 'history' | 'settings' | 'tiger-team' | 'assets' | 'nat';
