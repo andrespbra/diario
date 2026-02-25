@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Asset } from '../types';
+import { Asset, NatEntry } from '../types';
 import { DataManager } from '../services/dataManager';
 import { isSupabaseConfigured } from '../lib/supabaseClient';
 import { 
@@ -21,7 +21,8 @@ import {
   X,
   Info,
   Package,
-  PhoneCall
+  PhoneCall,
+  Network
 } from 'lucide-react';
 import Papa from 'papaparse';
 
@@ -31,6 +32,7 @@ interface AssetManagerProps {
 
 export const AssetManager: React.FC<AssetManagerProps> = ({ onOpenTicket }) => {
   const [assets, setAssets] = useState<Asset[]>([]);
+  const [natEntries, setNatEntries] = useState<NatEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,10 +40,10 @@ export const AssetManager: React.FC<AssetManagerProps> = ({ onOpenTicket }) => {
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' | 'info' | 'warning' } | null>(null);
 
   useEffect(() => {
-    loadAssets();
+    loadData();
   }, []);
 
-  const loadAssets = async () => {
+  const loadData = async () => {
     setLoading(true);
     try {
       if (!isSupabaseConfigured) {
@@ -49,8 +51,14 @@ export const AssetManager: React.FC<AssetManagerProps> = ({ onOpenTicket }) => {
         setMessage({ text: "O banco de dados não está configurado. A importação está desativada.", type: 'warning' });
         return;
       }
-      const data = await DataManager.getAssets();
-      setAssets(data);
+      
+      const [assetData, natData] = await Promise.all([
+        DataManager.getAssets(),
+        DataManager.getNatEntries()
+      ]);
+      
+      setAssets(assetData);
+      setNatEntries(natData);
     } catch (err: any) {
       console.error(err);
       setMessage({ text: `Erro ao carregar: ${err.message}`, type: 'error' });
@@ -58,6 +66,12 @@ export const AssetManager: React.FC<AssetManagerProps> = ({ onOpenTicket }) => {
       setLoading(false);
     }
   };
+
+  const loadAssets = loadData; // Alias for compatibility
+
+  const natHostnameSet = useMemo(() => {
+    return new Set(natEntries.map(n => n.hostname.toLowerCase()));
+  }, [natEntries]);
 
   const assetStats = useMemo(() => {
     const total = assets.length;
@@ -288,7 +302,15 @@ export const AssetManager: React.FC<AssetManagerProps> = ({ onOpenTicket }) => {
                             <Monitor className="w-4 h-4" />
                           </div>
                           <div className="flex flex-col">
-                            <span className="font-bold text-gray-900 font-mono text-sm">{asset.hostname}</span>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-gray-900 font-mono text-sm">{asset.hostname}</span>
+                              {natHostnameSet.has(asset.hostname.toLowerCase()) && (
+                                <span className="bg-amber-100 text-amber-700 text-[9px] font-black px-1.5 py-0.5 rounded flex items-center gap-1 border border-amber-200" title="Este equipamento possui registro na base NAT">
+                                  <Network className="w-2.5 h-2.5" />
+                                  NAT
+                                </span>
+                              )}
+                            </div>
                             <span className="text-[10px] text-gray-500 font-mono">S/N: {asset.serialNumber}</span>
                           </div>
                         </div>
@@ -328,7 +350,14 @@ export const AssetManager: React.FC<AssetManagerProps> = ({ onOpenTicket }) => {
                     <div className="absolute top-0 right-0 p-2 opacity-5"><Monitor className="w-12 h-12" /></div>
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="text-sm font-bold text-indigo-600 font-mono">{asset.hostname}</h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-sm font-bold text-indigo-600 font-mono">{asset.hostname}</h3>
+                          {natHostnameSet.has(asset.hostname.toLowerCase()) && (
+                            <span className="bg-amber-100 text-amber-700 text-[8px] font-black px-1 py-0.5 rounded border border-amber-200" title="Registro NAT encontrado">
+                              NAT
+                            </span>
+                          )}
+                        </div>
                         <p className="text-[10px] text-gray-400 font-mono">SN: {asset.serialNumber}</p>
                       </div>
                       <span className="bg-slate-900 text-white text-[9px] font-black px-2 py-1 rounded">
