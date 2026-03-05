@@ -11,10 +11,10 @@ import { NatManager } from './components/NatManager';
 import { LoginPage } from './components/LoginPage';
 import { Settings } from './components/Settings';
 import { ChangePassword } from './components/ChangePassword';
-import { Ticket, ViewState, UserProfile, TicketStatus, Asset } from './types';
+import { Ticket, ViewState, UserProfile, TicketStatus, Asset, NatEntry } from './types';
 import { Menu, X, Loader2, Cloud, AlertTriangle, RefreshCw, Database } from 'lucide-react';
 import { DataManager } from './services/dataManager';
-import { isSupabaseConfigured } from './lib/supabaseClient';
+import { supabase, isSupabaseConfigured } from './lib/supabaseClient';
 
 const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
@@ -22,6 +22,7 @@ const App: React.FC = () => {
   const [dataLoading, setDataLoading] = useState(false);
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
   const [tickets, setTickets] = useState<Ticket[]>([]);
+  const [natEntries, setNatEntries] = useState<NatEntry[]>([]);
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
@@ -40,6 +41,26 @@ const App: React.FC = () => {
         if (user) {
             setCurrentUser(user);
             fetchData(user);
+            
+            // Configurar Realtime para tickets
+            const channel = supabase
+              .channel('tickets-realtime')
+              .on(
+                'postgres_changes',
+                {
+                  event: '*',
+                  schema: 'public',
+                  table: 'tickets'
+                },
+                () => {
+                  fetchData(user);
+                }
+              )
+              .subscribe();
+
+            return () => {
+              supabase.removeChannel(channel);
+            };
         }
       } catch (err) {
         console.error("Session check failed", err);
@@ -57,6 +78,13 @@ const App: React.FC = () => {
       try {
         const ticketData = await DataManager.getTickets(user.id, user.nivel === 'Admin');
         setTickets(ticketData);
+
+        try {
+            const natData = await DataManager.getNatEntries();
+            setNatEntries(natData);
+        } catch (natErr) {
+            console.warn("Could not fetch NAT entries", natErr);
+        }
         
         if (user.nivel === 'Admin') {
             try {
@@ -298,7 +326,7 @@ const App: React.FC = () => {
                 </div>
             )}
 
-            {currentView === 'dashboard' && tickets.length > 0 && <Dashboard tickets={tickets} />}
+            {currentView === 'dashboard' && tickets.length > 0 && <Dashboard tickets={tickets} natEntries={natEntries} />}
             {currentView === 'new-ticket' && <NewTicketForm onSubmit={handleCreateTicket} currentUser={currentUser} prefilledAsset={prefilledAsset} />}
             {currentView === 'tiger-team' && <TigerTeam tickets={tickets} onResolve={handleResolveTicket} />}
             {currentView === 'escalations' && <EscalationList tickets={tickets} onResolve={handleResolveTicket} />}

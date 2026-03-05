@@ -1,8 +1,8 @@
 
 import React, { useMemo } from 'react';
-import { Ticket, TicketPriority, TicketStatus } from '../types';
+import { Ticket, TicketPriority, TicketStatus, NatEntry } from '../types';
 import { StatsCard } from './StatsCard';
-import { BarChart3, CheckCircle2, Clock, AlertOctagon, Zap, Monitor, AlertTriangle, PieChart as PieChartIcon, TrendingUp, MapPin } from 'lucide-react';
+import { BarChart3, CheckCircle2, Clock, AlertOctagon, Zap, Monitor, AlertTriangle, PieChart as PieChartIcon, TrendingUp, MapPin, Network } from 'lucide-react';
 import { 
   BarChart, 
   Bar, 
@@ -19,11 +19,12 @@ import {
 
 interface DashboardProps {
   tickets: Ticket[];
+  natEntries: NatEntry[];
 }
 
 const COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316'];
 
-export const Dashboard: React.FC<DashboardProps> = ({ tickets }) => {
+export const Dashboard: React.FC<DashboardProps> = ({ tickets, natEntries }) => {
   const totalTickets = tickets.length;
   
   const escalatedTickets = tickets.filter(t => 
@@ -41,6 +42,9 @@ export const Dashboard: React.FC<DashboardProps> = ({ tickets }) => {
 
   const resolvedTickets = tickets.filter(t => t.status === TicketStatus.RESOLVED || t.status === TicketStatus.CLOSED).length;
   const openTickets = tickets.filter(t => t.status === TicketStatus.OPEN).length;
+
+  const natHostnames = useMemo(() => new Set(natEntries.map(n => n.hostname?.toLowerCase())), [natEntries]);
+  const natTicketsCount = tickets.filter(t => t.hostname && natHostnames.has(t.hostname.toLowerCase())).length;
 
   // Estatísticas de Equipamentos (Hostnames) mais chamados incluindo localização
   const equipmentStats = useMemo(() => {
@@ -93,7 +97,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ tickets }) => {
       </div>
 
       {/* Top Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-4">
         <StatsCard 
           title="Total Geral" 
           value={totalTickets} 
@@ -113,6 +117,13 @@ export const Dashboard: React.FC<DashboardProps> = ({ tickets }) => {
           icon={Zap} 
           trend={tigerTeamTickets > 0 ? "Alta Prioridade" : "Limpo"}
           colorClass="bg-amber-500" 
+        />
+        <StatsCard 
+          title="NAT" 
+          value={natTicketsCount} 
+          icon={Network} 
+          trend={natTicketsCount > 0 ? "Equip. Críticos" : "Estável"}
+          colorClass="bg-blue-600" 
         />
         <StatsCard 
           title="Resolvidos" 
