@@ -139,7 +139,7 @@ export const AssetManager: React.FC<AssetManagerProps> = ({ onOpenTicket }) => {
           setMessage({ text: `Enviando ${mappedAssets.length} registros para o banco de dados...`, type: 'info' });
           const count = await DataManager.upsertAssets(mappedAssets);
           
-          setMessage({ text: `${count} ativos importados/atualizados com sucesso!`, type: 'success' });
+          setMessage({ text: `${count} novos ativos importados com sucesso! (Duplicados ignorados)`, type: 'success' });
           await loadAssets();
         } catch (err: any) {
           console.error("Erro Crítico na Importação:", err);

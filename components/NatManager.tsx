@@ -100,7 +100,7 @@ export const NatManager: React.FC = () => {
           }
 
           const count = await DataManager.upsertNatEntries(mappedData);
-          setStatus({ type: 'success', message: `${count} registros NAT importados/atualizados com sucesso!` });
+          setStatus({ type: 'success', message: `${count} novos registros NAT importados com sucesso! (Duplicados ignorados)` });
           fetchEntries();
         } catch (error: any) {
           setStatus({ type: 'error', message: error.message || "Erro ao processar arquivo." });

@@ -129,16 +129,16 @@ export const DataManager = {
             updated_at: new Date().toISOString()
         }));
 
-        const { error } = await supabase.from('assets').upsert(chunk, { 
+        const { data, error } = await supabase.from('assets').upsert(chunk, { 
             onConflict: 'hostname',
-            ignoreDuplicates: false 
-        });
+            ignoreDuplicates: true 
+        }).select('hostname');
         
         if (error) {
             console.error("Erro no lote de upsert:", error);
             throw error;
         }
-        totalInserted += chunk.length;
+        totalInserted += (data?.length || 0);
     }
     return totalInserted;
   },
@@ -222,16 +222,16 @@ export const DataManager = {
             updated_at: new Date().toISOString()
         }));
 
-        const { error } = await supabase.from('nat_entries').upsert(chunk, { 
+        const { data, error } = await supabase.from('nat_entries').upsert(chunk, { 
             onConflict: 'hostname',
-            ignoreDuplicates: false 
-        });
+            ignoreDuplicates: true 
+        }).select('hostname');
         
         if (error) {
             console.error("Erro no lote de upsert NAT:", error);
             throw error;
         }
-        totalInserted += chunk.length;
+        totalInserted += (data?.length || 0);
     }
     return totalInserted;
   },
