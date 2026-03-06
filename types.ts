@@ -6,6 +6,19 @@ export enum TicketStatus {
   CLOSED = 'Fechado'
 }
 
+export enum OffenderType {
+  DIAGNOSTICO_TECNICO = 'Diagnostico Técnico',
+  BACKUP = 'Backup',
+  TELECOM = 'Telecom',
+  OPERACIONAL = 'Operacional',
+  SERVIDORES = 'Servidores',
+  INFRA = 'Infra',
+  SCREENING = 'Screenig',
+  HARDWARE = 'Hardware',
+  SOFTWARE = 'Software',
+  VANDALISMO = 'Vandalismo'
+}
+
 export enum TicketPriority {
   LOW = 'Baixa',
   MEDIUM = 'Média',
@@ -100,6 +113,7 @@ export interface Ticket {
   priority: TicketPriority;
   isEscalated: boolean;
   isTigerTeam: boolean; // Flag for #198 Tiger Team
+  offenderRecidivism?: OffenderType; // Ofensor para reincidência
   createdAt: Date;
   
   // Adicionais para o ticket se vinculados ao ativo

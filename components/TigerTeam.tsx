@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
-import { Ticket, TicketPriority, TicketStatus } from '../types';
+import { Ticket, TicketPriority, TicketStatus, OffenderType } from '../types';
 import { 
   Zap, AlertCircle, Clock, ShieldAlert, ChevronRight, 
   MapPin, Monitor, CheckCircle2, Trophy, History, 
   X, User, Wrench, Hash, Copy, Check, Save, 
-  CreditCard, Activity, XCircle, Eye, Tag, FileText, Barcode
+  CreditCard, Activity, XCircle, Eye, Tag, FileText, Barcode, AlertTriangle
 } from 'lucide-react';
 
 interface TigerTeamProps {
@@ -58,6 +58,7 @@ TASK: ${editFormData.taskId} | INC / RITM: ${editFormData.serviceRequest}
 HOSTNAME: ${editFormData.hostname} | N. SÉRIE: ${editFormData.serialNumber || 'N/A'}
 CLIENTE: ${editFormData.customerName}
 TAGS: ${editFormData.tagVLDD ? '#VLDD#' : ''} ${editFormData.tagNLVDD ? '#NLVDD#' : ''}
+OFENSOR REINCIDÊNCIA: ${editFormData.offenderRecidivism || 'N/A'}
 
 DEFEITO RECLAMADO:
 ${editFormData.description}
@@ -200,6 +201,19 @@ SITUAÇÃO: ${editFormData.status.toUpperCase()}
                       <span className="text-[10px] font-bold text-purple-700">#NLVDD#</span>
                     </label>
                   </div>
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label className="text-[10px] font-bold text-slate-400 uppercase flex items-center gap-1"><AlertTriangle className="w-3 h-3 text-red-500" /> Ofensor Reincidência</label>
+                  <select 
+                    value={editFormData.offenderRecidivism || ''} 
+                    onChange={(e) => handleInputChange('offenderRecidivism', e.target.value)}
+                    className="w-full text-xs font-bold text-red-900 px-3 py-2 bg-red-50 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500 outline-none"
+                  >
+                    <option value="">Selecione o ofensor...</option>
+                    {Object.values(OffenderType).map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
                 </div>
               </div>
 

@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
-import { TicketPriority, TicketStatus, Ticket, UserProfile, Asset } from '../types';
+import { TicketPriority, TicketStatus, Ticket, UserProfile, Asset, OffenderType } from '../types';
 import { analyzeTicketProblem } from '../services/geminiService';
-import { Sparkles, Save, Loader2, User, FileText, MapPin, Hash, Monitor, Clock, Tag, Briefcase, Wrench, CheckSquare, Copy, Check, Users, AlertOctagon, Zap, Barcode, Database } from 'lucide-react';
+import { Sparkles, Save, Loader2, User, FileText, MapPin, Hash, Monitor, Clock, Tag, Briefcase, Wrench, CheckSquare, Copy, Check, Users, AlertOctagon, Zap, Barcode, Database, AlertTriangle } from 'lucide-react';
 
 interface NewTicketFormProps {
   onSubmit: (ticket: Ticket) => void;
@@ -59,6 +59,7 @@ export const NewTicketForm: React.FC<NewTicketFormProps> = ({ onSubmit, currentU
     clientWitnessId: '',
     isEscalated: false,
     isTigerTeam: false,
+    offenderRecidivism: '' as OffenderType | '',
     // Novos campos vinculados ao Ativo
     termId: '',
     filial: '',
@@ -109,6 +110,7 @@ TASK: ${formData.taskId} | INC / RITM: ${formData.serviceRequest}
 ASSUNTO: ${formData.subject}
 TIGER TEAM: ${formData.isTigerTeam ? 'SIM (#198)' : 'NÃO'}
 STATUS: ${formData.isEscalated ? 'ESCALONADO (CRÍTICO)' : 'NORMAL'}
+OFENSOR REINCIDÊNCIA: ${formData.offenderRecidivism || 'N/A'}
 
 ACOMPANHAMENTO:
 Cliente: ${formData.clientWitnessName || 'N/A'} (Matrícula: ${formData.clientWitnessId || 'N/A'})
@@ -396,6 +398,23 @@ Final:  ${end}
                     </button>
                 </div>
              </div>
+             {(formData.isEscalated || formData.isTigerTeam) && (
+               <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-red-500" /> Ofensor para Reincidência
+                  </label>
+                  <select
+                    value={formData.offenderRecidivism}
+                    onChange={(e) => handleChange('offenderRecidivism', e.target.value)}
+                    className="w-full px-4 py-2 rounded-lg border border-red-200 bg-red-50 focus:ring-2 focus:ring-red-500 outline-none font-semibold text-red-900"
+                  >
+                    <option value="">Selecione o ofensor...</option>
+                    {Object.values(OffenderType).map((type) => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+               </div>
+             )}
           </div>
 
           <hr className="border-gray-100" />

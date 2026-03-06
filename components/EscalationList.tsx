@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Ticket, TicketStatus } from '../types';
+import { Ticket, TicketStatus, OffenderType } from '../types';
 import { AlertTriangle, Clock, MapPin, Eye, X, CheckCircle2, User, Wrench, Hash, Copy, Check, Save, CreditCard, Activity, Monitor, XCircle, Barcode } from 'lucide-react';
 
 interface EscalationListProps {
@@ -44,6 +44,7 @@ TASK: ${editFormData.taskId} | INC / RITM: ${editFormData.serviceRequest}
 HOSTNAME: ${editFormData.hostname} | N. SÉRIE: ${editFormData.serialNumber || 'N/A'}
 CLIENTE: ${editFormData.customerName}
 TAGS: ${editFormData.tagVLDD ? '#VLDD#' : ''} ${editFormData.tagNLVDD ? '#NLVDD#' : ''}
+OFENSOR REINCIDÊNCIA: ${editFormData.offenderRecidivism || 'N/A'}
 
 DEFEITO RECLAMADO:
 ${editFormData.description}
@@ -192,6 +193,22 @@ Matrícula: ${editFormData.clientWitnessId || 'N/A'}
                             <input type="checkbox" checked={editFormData.tagNLVDD} onChange={(e) => handleInputChange('tagNLVDD', e.target.checked)} className="w-4 h-4 text-purple-600 rounded focus:ring-purple-500" />
                             <span className="font-bold text-purple-700 text-sm">#NLVDD#</span>
                         </label>
+                    </div>
+
+                    <div className="bg-red-50 p-3 rounded-lg border border-red-100">
+                        <label className="text-xs font-bold text-red-700 uppercase mb-2 block flex items-center gap-2">
+                            <AlertTriangle className="w-4 h-4" /> Ofensor para Reincidência
+                        </label>
+                        <select 
+                            value={editFormData.offenderRecidivism || ''} 
+                            onChange={(e) => handleInputChange('offenderRecidivism', e.target.value)}
+                            className="w-full px-3 py-2 border border-red-200 rounded-lg focus:ring-2 focus:ring-red-500 outline-none text-sm bg-white font-semibold text-red-900"
+                        >
+                            <option value="">Selecione o ofensor...</option>
+                            {Object.values(OffenderType).map((type) => (
+                                <option key={type} value={type}>{type}</option>
+                            ))}
+                        </select>
                     </div>
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
