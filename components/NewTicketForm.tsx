@@ -60,6 +60,7 @@ export const NewTicketForm: React.FC<NewTicketFormProps> = ({ onSubmit, currentU
     isEscalated: false,
     isTigerTeam: false,
     offenderRecidivism: '' as OffenderType | '',
+    priority: TicketPriority.MEDIUM,
     // Novos campos vinculados ao Ativo
     termId: '',
     filial: '',
@@ -143,14 +144,31 @@ Final:  ${end}
   const handleAnalyze = async () => {
     if (!formData.description) return;
     setIsAnalyzing(true);
-    const context = `Assunto: ${formData.subject}. Descrição: ${formData.description}`;
-    const result = await analyzeTicketProblem(context);
-    setAiSuggestion({
-      solution: result.suggestedSolution,
-      priority: result.recommendedPriority,
-      escalated: result.isEscalationRecommended
-    });
-    setIsAnalyzing(false);
+    try {
+      const context = `Assunto: ${formData.subject}. Descrição: ${formData.description}`;
+      const result = await analyzeTicketProblem(context);
+      
+      setAiSuggestion({
+        solution: result.suggestedSolution,
+        priority: result.recommendedPriority,
+        escalated: result.isEscalationRecommended
+      });
+
+      // Preencher sugestão de solução no campo de ação do analista se estiver vazio
+      if (!formData.analystAction || formData.analystAction.trim() === '') {
+        handleChange('analystAction', result.suggestedSolution);
+      }
+
+      // Atualizar prioridade e escalonamento com base na IA
+      handleChange('priority', result.recommendedPriority);
+      if (result.isEscalationRecommended) {
+        handleChange('isEscalated', true);
+      }
+    } catch (error) {
+      console.error("Erro na análise de IA:", error);
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -159,7 +177,7 @@ Final:  ${end}
     const isActuallyEscalated = formData.isEscalated || (aiSuggestion ? aiSuggestion.escalated : false);
     
     let initialStatus = TicketStatus.OPEN;
-    let priorityFinal = aiSuggestion ? aiSuggestion.priority : TicketPriority.MEDIUM;
+    let priorityFinal = formData.priority;
 
     if (formData.isTigerTeam) {
         initialStatus = TicketStatus.IN_PROGRESS;
@@ -179,7 +197,7 @@ Final:  ${end}
       priority: priorityFinal,
       isEscalated: !!(isActuallyEscalated || formData.isTigerTeam),
       isTigerTeam: !!formData.isTigerTeam,
-      aiSuggestedSolution: aiSuggestion?.solution,
+      aiSuggestedSolution: aiSuggestion?.solution || formData.analystAction,
       createdAt: new Date(),
     };
     
@@ -366,6 +384,20 @@ Final:  ${end}
                   className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none"
                   placeholder="INC / RITM-9999"
                 />
+             </div>
+             <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-indigo-500" /> Prioridade do Atendimento
+                </label>
+                <select
+                  value={formData.priority}
+                  onChange={(e) => handleChange('priority', e.target.value)}
+                  className="w-full px-4 py-2 rounded-lg border border-gray-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+                >
+                  {Object.values(TicketPriority).map((p) => (
+                    <option key={p} value={p}>{p}</option>
+                  ))}
+                </select>
              </div>
              <div className="space-y-2">
                 <label className="text-sm font-medium text-gray-700 flex items-center gap-2">

@@ -10,6 +10,7 @@ import { AssetManager } from './components/AssetManager';
 import { NatManager } from './components/NatManager';
 import { LoginPage } from './components/LoginPage';
 import { Settings } from './components/Settings';
+import { Reports } from './components/Reports';
 import { ChangePassword } from './components/ChangePassword';
 import { Ticket, ViewState, UserProfile, TicketStatus, Asset, NatEntry } from './types';
 import { Menu, X, Loader2, Cloud, AlertTriangle, RefreshCw, Database } from 'lucide-react';
@@ -341,6 +342,9 @@ const App: React.FC = () => {
             )}
             {currentView === 'settings' && currentUser.nivel === 'Admin' && (
                 <Settings users={users} onAddUser={handleAddUser} onDeleteUser={handleDeleteUser} />
+            )}
+            {currentView === 'reports' && currentUser.nivel === 'Admin' && (
+                <Reports tickets={tickets} natEntries={natEntries} />
             )}
         </div>
       </main>

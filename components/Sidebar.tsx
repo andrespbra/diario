@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, PhoneCall, AlertTriangle, History, Headphones, Settings, Zap, Database, Network } from 'lucide-react';
+import { LayoutDashboard, PhoneCall, AlertTriangle, History, Headphones, Settings, Zap, Database, Network, BarChart3 } from 'lucide-react';
 import { ViewState, UserProfile } from '../types';
 
 interface SidebarProps {
@@ -22,8 +22,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentView, setView, isMobile
     { id: 'history', label: 'Histórico', icon: History },
   ];
 
-  // Only add Settings if user is Admin
+  // Only add Admin specific items
   if (currentUser.nivel === 'Admin') {
+    navItems.push({ id: 'reports', label: 'Relatórios', icon: BarChart3 });
     navItems.push({ id: 'settings', label: 'Configurações', icon: Settings });
   }
 

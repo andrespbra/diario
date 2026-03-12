@@ -36,6 +36,7 @@ export const AssetManager: React.FC<AssetManagerProps> = ({ onOpenTicket }) => {
   const [loading, setLoading] = useState(false);
   const [importing, setImporting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedFilial, setSelectedFilial] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
   const [message, setMessage] = useState<{ text: string, type: 'success' | 'error' | 'info' | 'warning' } | null>(null);
 
@@ -156,16 +157,24 @@ export const AssetManager: React.FC<AssetManagerProps> = ({ onOpenTicket }) => {
     });
   };
 
+  const uniqueFiliais = useMemo(() => {
+    const filiais = assets.map(a => a.filial).filter(Boolean);
+    return Array.from(new Set(filiais)).sort();
+  }, [assets]);
+
   const filteredAssets = useMemo(() => {
-    if (!searchTerm) return assets;
-    const lowSearch = searchTerm.toLowerCase();
-    return assets.filter(a => 
-      (a.hostname || '').toLowerCase().includes(lowSearch) ||
-      (a.serialNumber || '').toLowerCase().includes(lowSearch) ||
-      (a.locationName || '').toLowerCase().includes(lowSearch) ||
-      (a.termId || '').toLowerCase().includes(lowSearch)
-    );
-  }, [assets, searchTerm]);
+    return assets.filter(a => {
+      const matchesSearch = !searchTerm || 
+        (a.hostname || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (a.serialNumber || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (a.locationName || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (a.termId || '').toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesFilial = selectedFilial === 'all' || a.filial === selectedFilial;
+      
+      return matchesSearch && matchesFilial;
+    });
+  }, [assets, searchTerm, selectedFilial]);
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 h-full flex flex-col">
@@ -251,21 +260,38 @@ export const AssetManager: React.FC<AssetManagerProps> = ({ onOpenTicket }) => {
         </div>
       )}
 
-      {/* Search Bar */}
-      <div className="relative">
-        <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
-        <input 
-          type="text" 
-          placeholder="Pesquisar por Hostname, S/N, Localização ou Term ID..." 
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none w-full bg-white shadow-sm text-sm"
-        />
-        {searchTerm && (
-          <button onClick={() => setSearchTerm('')} className="absolute right-3 top-3 text-gray-400 hover:text-indigo-600">
-            <X className="w-4 h-4" />
-          </button>
-        )}
+      {/* Search and Filter Bar */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
+          <input 
+            type="text" 
+            placeholder="Pesquisar por Hostname, S/N, Localização ou Term ID..." 
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10 pr-10 py-2.5 border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none w-full bg-white shadow-sm text-sm"
+          />
+          {searchTerm && (
+            <button onClick={() => setSearchTerm('')} className="absolute right-3 top-3 text-gray-400 hover:text-indigo-600">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        <div className="relative min-w-[200px]">
+          <div className="absolute -top-5 left-0 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Filial</div>
+          <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <select
+            value={selectedFilial}
+            onChange={(e) => setSelectedFilial(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm text-sm appearance-none cursor-pointer"
+          >
+            <option value="all">Todas as Filiais</option>
+            {uniqueFiliais.map(filial => (
+              <option key={filial} value={filial}>{filial}</option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* List / Table Area */}

@@ -125,4 +125,4 @@ export interface Ticket {
   produto?: string;
 }
 
-export type ViewState = 'dashboard' | 'new-ticket' | 'escalations' | 'history' | 'settings' | 'tiger-team' | 'assets' | 'nat';
+export type ViewState = 'dashboard' | 'new-ticket' | 'escalations' | 'history' | 'settings' | 'tiger-team' | 'assets' | 'nat' | 'reports';

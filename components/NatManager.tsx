@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { Upload, Search, Database, FileText, CheckCircle2, AlertCircle, Loader2, Download, Network, X, Filter, Trash2 } from 'lucide-react';
+import { Upload, Search, Database, FileText, CheckCircle2, AlertCircle, Loader2, Download, Network, X, Filter, Trash2, ChevronDown, RefreshCw } from 'lucide-react';
 import Papa from 'papaparse';
 import { DataManager } from '../services/dataManager';
 import { NatEntry } from '../types';
@@ -259,22 +259,42 @@ export const NatManager: React.FC = () => {
               )}
             </div>
 
-            <div className="relative min-w-[180px]">
+            <div className="relative min-w-[200px]">
+              <div className="absolute -top-5 left-0 text-[10px] font-bold text-slate-400 uppercase tracking-widest">Filial</div>
               <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               <select
                 value={selectedFilial}
                 onChange={(e) => setSelectedFilial(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm appearance-none cursor-pointer"
+                className="w-full pl-10 pr-10 py-2 bg-white border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none transition-all text-sm appearance-none cursor-pointer"
               >
                 <option value="all">Todas as Filiais</option>
                 {uniqueFiliais.map(filial => (
                   <option key={filial} value={filial}>{filial}</option>
                 ))}
               </select>
+              <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              {selectedFilial !== 'all' && (
+                <button 
+                  onClick={() => setSelectedFilial('all')}
+                  className="absolute -right-8 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-rose-500 transition-colors"
+                  title="Limpar filtro de filial"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           </div>
           
           <div className="flex items-center gap-2">
+            {(searchTerm || selectedFilial !== 'all') && (
+              <button 
+                onClick={() => { setSearchTerm(''); setSelectedFilial('all'); }}
+                className="text-xs font-bold text-slate-400 hover:text-indigo-600 transition-colors flex items-center gap-1 mr-2"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Limpar Tudo
+              </button>
+            )}
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 text-indigo-700 rounded-full border border-indigo-100">
               <Filter className="w-3.5 h-3.5" />
               <span className="text-xs font-bold whitespace-nowrap">
