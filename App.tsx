@@ -326,7 +326,7 @@ const App: React.FC = () => {
                 </div>
             )}
 
-            {currentView === 'dashboard' && tickets.length > 0 && <Dashboard tickets={tickets} natEntries={natEntries} />}
+            {currentView === 'dashboard' && tickets.length > 0 && <Dashboard tickets={tickets} natEntries={natEntries} userRole={currentUser.nivel} />}
             {currentView === 'new-ticket' && <NewTicketForm onSubmit={handleCreateTicket} currentUser={currentUser} prefilledAsset={prefilledAsset} />}
             {currentView === 'tiger-team' && <TigerTeam tickets={tickets} onResolve={handleResolveTicket} />}
             {currentView === 'escalations' && <EscalationList tickets={tickets} onResolve={handleResolveTicket} />}
