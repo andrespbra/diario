@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   Ticket, 
   TicketStatus, 
@@ -38,7 +38,8 @@ import {
   Tag,
   Wrench,
   Loader2,
-  CheckCircle2
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 
 interface ReportsProps {
@@ -56,19 +57,30 @@ export const Reports: React.FC<ReportsProps> = ({ tickets, natEntries, onRefresh
   const [searchTerm, setSearchTerm] = useState('');
   const [isFixing, setIsFixing] = useState(false);
   const [fixResult, setFixResult] = useState<number | null>(null);
+  const [columnExists, setColumnExists] = useState<boolean | null>(null);
+  const [fixError, setFixError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const checkColumn = async () => {
+      const { exists } = await DataManager.verifyFilialColumn();
+      setColumnExists(exists);
+    };
+    checkColumn();
+  }, []);
 
   const handleFixFiliais = async () => {
     setIsFixing(true);
     setFixResult(null);
+    setFixError(null);
     try {
       const count = await DataManager.fixMissingFiliais();
       setFixResult(count);
       if (count > 0 && onRefresh) {
         onRefresh();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      alert("Erro ao corrigir filiais.");
+      setFixError(err.message || "Erro ao corrigir filiais.");
     } finally {
       setIsFixing(false);
     }
@@ -294,45 +306,80 @@ export const Reports: React.FC<ReportsProps> = ({ tickets, natEntries, onRefresh
 
       {/* Data Maintenance Section */}
       <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-amber-50 rounded-2xl">
-              <Wrench className="w-6 h-6 text-amber-600" />
-            </div>
-            <div>
-              <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Manutenção de Dados</h3>
-              <p className="text-sm text-slate-500 font-medium">Corrija chamados sem filial classificada usando a base de ativos.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            {fixResult !== null && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold animate-in fade-in slide-in-from-right-4">
-                <CheckCircle2 className="w-4 h-4" />
-                {fixResult} chamados corrigidos!
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-amber-50 rounded-2xl">
+                <Wrench className="w-6 h-6 text-amber-600" />
               </div>
-            )}
-            <button 
-              onClick={handleFixFiliais}
-              disabled={isFixing}
-              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-lg ${
-                isFixing 
-                ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
-                : 'bg-amber-500 text-white hover:bg-amber-600 shadow-amber-100'
-              }`}
-            >
-              {isFixing ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Corrigindo...
-                </>
-              ) : (
-                <>
-                  <Wrench className="w-4 h-4" />
-                  Corrigir Filiais
-                </>
+              <div>
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Manutenção de Dados</h3>
+                <p className="text-sm text-slate-500 font-medium">Corrija chamados sem filial classificada usando a base de ativos.</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              {fixResult !== null && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold animate-in fade-in slide-in-from-right-4">
+                  <CheckCircle2 className="w-4 h-4" />
+                  {fixResult} chamados corrigidos!
+                </div>
               )}
-            </button>
+              {fixError && (
+                <div className="flex items-center gap-2 px-4 py-2 bg-rose-50 text-rose-700 rounded-xl text-sm font-bold animate-in fade-in slide-in-from-right-4">
+                  <AlertCircle className="w-4 h-4" />
+                  {fixError}
+                </div>
+              )}
+              <button 
+                onClick={handleFixFiliais}
+                disabled={isFixing || columnExists === false}
+                className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-lg ${
+                  isFixing || columnExists === false
+                  ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                  : 'bg-amber-500 text-white hover:bg-amber-600 shadow-amber-100'
+                }`}
+              >
+                {isFixing ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Corrigindo...
+                  </>
+                ) : (
+                  <>
+                    <Wrench className="w-4 h-4" />
+                    Corrigir Filiais
+                  </>
+                )}
+              </button>
+            </div>
           </div>
+
+          {columnExists === false && (
+            <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl animate-in fade-in slide-in-from-top-4">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-bold text-amber-900 mb-1 uppercase tracking-tight">Coluna 'filial' ausente na tabela 'tickets'</h4>
+                  <p className="text-xs text-amber-800 mb-3 font-medium">
+                    A coluna 'filial' não foi detectada no banco de dados. 
+                    Para habilitar esta função, execute o comando SQL abaixo no seu dashboard do Supabase:
+                  </p>
+                  <div className="relative group">
+                    <pre className="bg-white/80 p-4 rounded-xl text-[11px] font-mono text-slate-800 overflow-x-auto border border-amber-200 shadow-inner">
+                      ALTER TABLE public.tickets ADD COLUMN IF NOT EXISTS filial TEXT;
+                    </pre>
+                    <button 
+                      onClick={() => navigator.clipboard.writeText("ALTER TABLE public.tickets ADD COLUMN IF NOT EXISTS filial TEXT;")}
+                      className="absolute top-2 right-2 p-2 bg-white rounded-lg border border-amber-200 text-amber-600 hover:bg-amber-50 transition-colors shadow-sm opacity-0 group-hover:opacity-100"
+                      title="Copiar SQL"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

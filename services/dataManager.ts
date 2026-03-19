@@ -416,11 +416,34 @@ export const DataManager = {
     if (user) await supabase.from('user_profiles').update({ must_change_password: false }).eq('id', user.id);
   },
 
+  // VERIFICAR SE A COLUNA FILIAL EXISTE
+  verifyFilialColumn: async (): Promise<{ exists: boolean; error?: string }> => {
+    if (!isSupabaseConfigured) return { exists: false, error: "Supabase não configurado" };
+    try {
+      const { error } = await supabase.from('tickets').select('filial').limit(1);
+      if (error) {
+        // Código 42703 é "undefined_column" no PostgreSQL
+        if (error.code === '42703') return { exists: false };
+        throw error;
+      }
+      return { exists: true };
+    } catch (err: any) {
+      console.error("Erro ao verificar coluna filial:", err);
+      return { exists: false, error: err.message };
+    }
+  },
+
   fixMissingFiliais: async (): Promise<number> => {
     if (!isSupabaseConfigured) return 0;
     
     try {
-      // 1. Get all assets to build lookup maps
+      // 1. Verificar se a coluna existe primeiro
+      const { exists, error: verifyError } = await DataManager.verifyFilialColumn();
+      if (!exists) {
+        throw new Error(verifyError || "A coluna 'filial' não existe na tabela 'tickets'. Por favor, execute o script SQL no dashboard do Supabase.");
+      }
+
+      // 2. Get all assets to build lookup maps
       const assets = await DataManager.getAssets();
       const hostnameMap = new Map<string, string>(); // hostname -> filial
       const serialMap = new Map<string, string>();   // serial -> filial
