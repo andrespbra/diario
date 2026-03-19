@@ -414,5 +414,68 @@ export const DataManager = {
     if (error) throw error;
     const { data: { user } } = await supabase.auth.getUser();
     if (user) await supabase.from('user_profiles').update({ must_change_password: false }).eq('id', user.id);
+  },
+
+  fixMissingFiliais: async (): Promise<number> => {
+    if (!isSupabaseConfigured) return 0;
+    
+    try {
+      // 1. Get all assets to build lookup maps
+      const assets = await DataManager.getAssets();
+      const hostnameMap = new Map<string, string>(); // hostname -> filial
+      const serialMap = new Map<string, string>();   // serial -> filial
+      
+      assets.forEach(a => {
+        if (a.hostname && a.filial) hostnameMap.set(a.hostname.toLowerCase(), a.filial);
+        if (a.serialNumber && a.filial) serialMap.set(a.serialNumber.toLowerCase(), a.filial);
+      });
+
+      // 2. Get all tickets without filial
+      const { data: tickets, error } = await supabase
+        .from('tickets')
+        .select('id, hostname, n_serie, filial')
+        .or('filial.is.null,filial.eq.""');
+
+      if (error) throw error;
+      if (!tickets || tickets.length === 0) return 0;
+
+      let updatedCount = 0;
+      // Process in batches to avoid overwhelming the connection
+      const batchSize = 20;
+      for (let i = 0; i < tickets.length; i += batchSize) {
+        const chunk = tickets.slice(i, i + batchSize);
+        const updates = chunk.map(async (ticket) => {
+          let foundFilial = null;
+          
+          const hostname = ticket.hostname?.toLowerCase();
+          if (hostname && hostnameMap.has(hostname)) {
+            foundFilial = hostnameMap.get(hostname);
+          } else {
+            const serial = ticket.n_serie?.toLowerCase();
+            if (serial && serialMap.has(serial)) {
+              foundFilial = serialMap.get(serial);
+            }
+          }
+
+          if (foundFilial) {
+            const { error: updateError } = await supabase
+              .from('tickets')
+              .update({ filial: foundFilial })
+              .eq('id', ticket.id);
+            
+            if (!updateError) return true;
+          }
+          return false;
+        });
+
+        const results = await Promise.all(updates);
+        updatedCount += results.filter(Boolean).length;
+      }
+      
+      return updatedCount;
+    } catch (err) {
+      console.error("Erro ao corrigir filiais:", err);
+      throw err;
+    }
   }
 };

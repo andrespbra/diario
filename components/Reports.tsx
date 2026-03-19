@@ -6,6 +6,7 @@ import {
   NatEntry, 
   OffenderType 
 } from '../types';
+import { DataManager } from '../services/dataManager';
 import { 
   BarChart, 
   Bar, 
@@ -34,21 +35,44 @@ import {
   Table,
   MapPin,
   Calendar,
-  Tag
+  Tag,
+  Wrench,
+  Loader2,
+  CheckCircle2
 } from 'lucide-react';
 
 interface ReportsProps {
   tickets: Ticket[];
   natEntries: NatEntry[];
+  onRefresh?: () => void;
 }
 
 const COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#F97316'];
 
-export const Reports: React.FC<ReportsProps> = ({ tickets, natEntries }) => {
+export const Reports: React.FC<ReportsProps> = ({ tickets, natEntries, onRefresh }) => {
   const [filterFilial, setFilterFilial] = useState<string>('all');
   const [filterNLVDD, setFilterNLVDD] = useState<string>('all');
   const [filterEscalated, setFilterEscalated] = useState<string>('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isFixing, setIsFixing] = useState(false);
+  const [fixResult, setFixResult] = useState<number | null>(null);
+
+  const handleFixFiliais = async () => {
+    setIsFixing(true);
+    setFixResult(null);
+    try {
+      const count = await DataManager.fixMissingFiliais();
+      setFixResult(count);
+      if (count > 0 && onRefresh) {
+        onRefresh();
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao corrigir filiais.");
+    } finally {
+      setIsFixing(false);
+    }
+  };
 
   // Unique filiais for filter
   const filiais = useMemo(() => {
@@ -266,6 +290,50 @@ export const Reports: React.FC<ReportsProps> = ({ tickets, natEntries }) => {
         <ReportCard title="ESCALADOS" value={stats.escalated} icon={AlertTriangle} color="bg-red-500" />
         <ReportCard title="ABERTOS COM NAT" value={stats.openWithNat} icon={Network} color="bg-cyan-600" />
         <ReportCard title="EM ABERTO" value={stats.open} icon={PhoneCall} color="bg-slate-700" />
+      </div>
+
+      {/* Data Maintenance Section */}
+      <div className="bg-white p-6 rounded-3xl shadow-sm border border-slate-100">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-amber-50 rounded-2xl">
+              <Wrench className="w-6 h-6 text-amber-600" />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Manutenção de Dados</h3>
+              <p className="text-sm text-slate-500 font-medium">Corrija chamados sem filial classificada usando a base de ativos.</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            {fixResult !== null && (
+              <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 rounded-xl text-sm font-bold animate-in fade-in slide-in-from-right-4">
+                <CheckCircle2 className="w-4 h-4" />
+                {fixResult} chamados corrigidos!
+              </div>
+            )}
+            <button 
+              onClick={handleFixFiliais}
+              disabled={isFixing}
+              className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all shadow-lg ${
+                isFixing 
+                ? 'bg-slate-100 text-slate-400 cursor-not-allowed' 
+                : 'bg-amber-500 text-white hover:bg-amber-600 shadow-amber-100'
+              }`}
+            >
+              {isFixing ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Corrigindo...
+                </>
+              ) : (
+                <>
+                  <Wrench className="w-4 h-4" />
+                  Corrigir Filiais
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Dashboards Row 1 */}

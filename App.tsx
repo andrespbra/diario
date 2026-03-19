@@ -344,7 +344,11 @@ const App: React.FC = () => {
                 <Settings users={users} onAddUser={handleAddUser} onDeleteUser={handleDeleteUser} />
             )}
             {currentView === 'reports' && currentUser.nivel === 'Admin' && (
-                <Reports tickets={tickets} natEntries={natEntries} />
+                <Reports 
+                    tickets={tickets} 
+                    natEntries={natEntries} 
+                    onRefresh={() => fetchData(currentUser)} 
+                />
             )}
         </div>
       </main>
