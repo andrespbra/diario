@@ -60,6 +60,19 @@ export const Reports: React.FC<ReportsProps> = ({ tickets, natEntries, onRefresh
   const [columnExists, setColumnExists] = useState<boolean | null>(null);
   const [fixError, setFixError] = useState<string | null>(null);
 
+  // NAT Lookup Sets
+  const natSets = useMemo(() => ({
+    hostnames: new Set(natEntries.map(n => n.hostname?.trim().toLowerCase()).filter(Boolean)),
+    series: new Set(natEntries.map(n => n.serie?.trim().toLowerCase()).filter(Boolean))
+  }), [natEntries]);
+
+  // Helper to check if a ticket has NAT
+  const isNat = (t: Ticket) => {
+    const h = t.hostname?.trim().toLowerCase();
+    const s = t.serialNumber?.trim().toLowerCase();
+    return (h && natSets.hostnames.has(h)) || (s && natSets.series.has(s));
+  };
+
   useEffect(() => {
     const checkColumn = async () => {
       const { exists } = await DataManager.verifyFilialColumn();
@@ -114,17 +127,15 @@ export const Reports: React.FC<ReportsProps> = ({ tickets, natEntries, onRefresh
     const tigerTeam = filteredTickets.filter(t => t.isTigerTeam).length;
     const escalated = filteredTickets.filter(t => t.isEscalated).length;
     
-    const natHostnames = new Set(natEntries.map(n => n.hostname?.toLowerCase()));
     const openWithNat = filteredTickets.filter(t => 
-      t.status === TicketStatus.OPEN && 
-      t.hostname && 
-      natHostnames.has(t.hostname.toLowerCase())
+      t.status === TicketStatus.OPEN && isNat(t)
     ).length;
     
+    const totalWithNat = filteredTickets.filter(isNat).length;
     const open = filteredTickets.filter(t => t.status === TicketStatus.OPEN).length;
 
-    return { total, inProgress, tigerTeam, escalated, openWithNat, open };
-  }, [filteredTickets, natEntries]);
+    return { total, inProgress, tigerTeam, escalated, openWithNat, totalWithNat, open };
+  }, [filteredTickets, isNat]);
 
   // Chart Data: Tickets vs Filial
   const filialChartData = useMemo(() => {
@@ -164,6 +175,21 @@ export const Reports: React.FC<ReportsProps> = ({ tickets, natEntries, onRefresh
       .sort((a, b) => b.value - a.value);
   }, [filteredTickets]);
 
+  // Chart Data: NAT by Filial
+  const natByFilialData = useMemo(() => {
+    const counts: Record<string, number> = {};
+    filteredTickets.forEach(t => {
+      if (isNat(t)) {
+        const f = t.filial || 'N/A';
+        counts[f] = (counts[f] || 0) + 1;
+      }
+    });
+    return Object.entries(counts)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10);
+  }, [filteredTickets, isNat]);
+
   // List: Escalated by Client (Assuming isEscalated means escalated by client in this context)
   const escalatedByClient = useMemo(() => {
     return filteredTickets.filter(t => t.isEscalated);
@@ -175,13 +201,14 @@ export const Reports: React.FC<ReportsProps> = ({ tickets, natEntries, onRefresh
   }, [filteredTickets]);
 
   const exportToCSV = () => {
-    const headers = ['ID', 'Task ID', 'Filial', 'Cliente', 'Hostname', 'Status', 'Escalado', 'Tiger Team', 'Data'];
+    const headers = ['ID', 'Task ID', 'Filial', 'Cliente', 'Hostname', 'NAT', 'Status', 'Escalado', 'Tiger Team', 'Data'];
     const rows = filteredTickets.map(t => [
       t.id,
       t.taskId,
       t.filial || '',
       t.customerName,
       t.hostname,
+      isNat(t) ? 'Sim' : 'Não',
       t.status,
       t.isEscalated ? 'Sim' : 'Não',
       t.isTigerTeam ? 'Sim' : 'Não',
@@ -300,7 +327,13 @@ export const Reports: React.FC<ReportsProps> = ({ tickets, natEntries, onRefresh
         <ReportCard title="EM ATENDIMENTO" value={stats.inProgress} icon={Clock} color="bg-blue-500" />
         <ReportCard title="TIGER TEAM (198)" value={stats.tigerTeam} icon={Zap} color="bg-amber-500" />
         <ReportCard title="ESCALADOS" value={stats.escalated} icon={AlertTriangle} color="bg-red-500" />
-        <ReportCard title="ABERTOS COM NAT" value={stats.openWithNat} icon={Network} color="bg-cyan-600" />
+        <ReportCard 
+          title="ABERTOS COM NAT" 
+          value={stats.openWithNat} 
+          icon={Network} 
+          color="bg-cyan-600" 
+          subtitle={`Total no período: ${stats.totalWithNat}`}
+        />
         <ReportCard title="EM ABERTO" value={stats.open} icon={PhoneCall} color="bg-slate-700" />
       </div>
 
@@ -437,61 +470,74 @@ export const Reports: React.FC<ReportsProps> = ({ tickets, natEntries, onRefresh
       </div>
 
       {/* Dashboard Row 2: Offender Categories */}
-      <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
-        <div className="flex items-center justify-between mb-8">
-          <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Categorias de Ofensores</h3>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Distribuição de Recidiva</span>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">Categorias de Ofensores</h3>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Distribuição de Recidiva</span>
+          </div>
+          <div className="grid grid-cols-1 gap-8 items-center">
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={offenderChartData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={60}
+                    outerRadius={90}
+                    paddingAngle={8}
+                    dataKey="value"
+                    animationBegin={0}
+                    animationDuration={1500}
+                  >
+                    {offenderChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
+                  />
+                  <Legend 
+                    layout="horizontal" 
+                    align="center" 
+                    verticalAlign="bottom"
+                    wrapperStyle={{ fontSize: '10px', fontWeight: 700, paddingTop: '20px' }}
+                    iconType="circle"
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-center">
-          <div className="h-80">
+
+        <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-100">
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-cyan-50 rounded-lg">
+                <Network className="w-5 h-5 text-cyan-600" />
+              </div>
+              <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">NAT por Filial</h3>
+            </div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Top 10 Filiais</span>
+          </div>
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={offenderChartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={80}
-                  outerRadius={110}
-                  paddingAngle={8}
-                  dataKey="value"
-                  animationBegin={0}
-                  animationDuration={1500}
-                >
-                  {offenderChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
+              <BarChart data={natByFilialData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fontWeight: 600, fill: '#64748b' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fontWeight: 600, fill: '#64748b' }} />
                 <Tooltip 
+                  cursor={{ fill: '#f8fafc' }}
                   contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 20px 25px -5px rgb(0 0 0 / 0.1)' }}
                 />
-                <Legend 
-                  layout="vertical" 
-                  align="right" 
-                  verticalAlign="middle"
-                  wrapperStyle={{ fontSize: '12px', fontWeight: 700, paddingLeft: '40px' }}
-                  iconType="circle"
-                />
-              </PieChart>
+                <Bar dataKey="value" radius={[8, 8, 0, 0]} barSize={30}>
+                  {natByFilialData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill="#0891b2" />
+                  ))}
+                </Bar>
+              </BarChart>
             </ResponsiveContainer>
-          </div>
-          <div className="space-y-3">
-            {offenderChartData.slice(0, 6).map((item, idx) => (
-              <div key={item.name} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                <div className="flex items-center gap-3">
-                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[idx % COLORS.length] }} />
-                  <span className="text-sm font-bold text-slate-700">{item.name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-lg font-black text-slate-900">{item.value}</span>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Chamados</span>
-                </div>
-              </div>
-            ))}
-            {offenderChartData.length === 0 && (
-              <div className="text-center py-10 opacity-30">
-                <p className="text-sm font-bold">Sem dados de ofensores</p>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -515,6 +561,7 @@ export const Reports: React.FC<ReportsProps> = ({ tickets, natEntries, onRefresh
                 <tr>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Task ID</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Cliente</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">NAT</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Filial</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</th>
                 </tr>
@@ -524,6 +571,16 @@ export const Reports: React.FC<ReportsProps> = ({ tickets, natEntries, onRefresh
                   <tr key={t.id} className="hover:bg-slate-50 transition-colors group">
                     <td className="px-6 py-4 text-sm font-bold text-indigo-600">{t.taskId}</td>
                     <td className="px-6 py-4 text-sm font-medium text-slate-700 truncate max-w-[150px]">{t.customerName}</td>
+                    <td className="px-6 py-4">
+                      {isNat(t) ? (
+                        <span className="flex items-center gap-1 text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full uppercase">
+                          <Network className="w-3 h-3" />
+                          Sim
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-2 py-1 rounded-full uppercase">Não</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4 text-sm font-medium text-slate-500">{t.filial || 'N/A'}</td>
                     <td className="px-6 py-4 text-xs font-bold text-slate-400">{new Date(t.createdAt).toLocaleDateString()}</td>
                   </tr>
@@ -555,6 +612,7 @@ export const Reports: React.FC<ReportsProps> = ({ tickets, natEntries, onRefresh
                 <tr>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Task ID</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Hostname</th>
+                  <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">NAT</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Prioridade</th>
                   <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Data</th>
                 </tr>
@@ -564,6 +622,16 @@ export const Reports: React.FC<ReportsProps> = ({ tickets, natEntries, onRefresh
                   <tr key={t.id} className="hover:bg-slate-50 transition-colors group">
                     <td className="px-6 py-4 text-sm font-bold text-indigo-600">{t.taskId}</td>
                     <td className="px-6 py-4 text-sm font-medium text-slate-700">{t.hostname}</td>
+                    <td className="px-6 py-4">
+                      {isNat(t) ? (
+                        <span className="flex items-center gap-1 text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full uppercase">
+                          <Network className="w-3 h-3" />
+                          Sim
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-black text-slate-400 bg-slate-50 px-2 py-1 rounded-full uppercase">Não</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4">
                       <span className={`text-[10px] font-black px-2 py-1 rounded-full uppercase ${
                         t.priority === 'Crítica' ? 'bg-red-100 text-red-700' : 
@@ -594,9 +662,10 @@ interface ReportCardProps {
   value: number;
   icon: any;
   color: string;
+  subtitle?: string;
 }
 
-const ReportCard: React.FC<ReportCardProps> = ({ title, value, icon: Icon, color }) => (
+const ReportCard: React.FC<ReportCardProps> = ({ title, value, icon: Icon, color, subtitle }) => (
   <div className="bg-white p-5 rounded-3xl shadow-sm border border-slate-100 flex flex-col justify-between hover:shadow-md transition-all group">
     <div className="flex items-center justify-between mb-4">
       <div className={`p-2 rounded-xl ${color} bg-opacity-10 group-hover:bg-opacity-20 transition-all`}>
@@ -609,6 +678,7 @@ const ReportCard: React.FC<ReportCardProps> = ({ title, value, icon: Icon, color
     <div>
       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">{title}</p>
       <p className="text-2xl font-black text-slate-900">{value}</p>
+      {subtitle && <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-tighter">{subtitle}</p>}
     </div>
   </div>
 );
